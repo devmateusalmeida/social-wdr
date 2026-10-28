@@ -1,0 +1,5 @@
+# Tokens e chaves de API (nunca vão pro repositório)
+*.env
+segredos/
+
+__pycache__/
