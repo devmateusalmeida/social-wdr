@@ -1,0 +1,58 @@
+{
+  "itens": [
+    {
+      "id": "2026-11-10-feed",
+      "tipo": "feed",
+      "quando": "2026-11-10T19:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-10.jpg",
+      "legenda": "O boleto chega, você olha o valor e fecha o aplicativo do banco.\nEm casa, chega sorrindo e pergunta como foi o dia de todo mundo.\n\nVocê guarda o aperto pra eles não se preocuparem.\nSó que a preocupação continua ali, toda com você, e pesa em dobro.\n\nQuando foi a última vez que você contou em casa que o mês estava apertado?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #sobrecarga #financaspessoais #saudeemocional",
+      "situacao": "aguardando",
+      "tentativas": 0
+    },
+    {
+      "id": "2026-11-10-story",
+      "tipo": "story",
+      "quando": "2026-11-10T19:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-10.jpg",
+      "legenda": "",
+      "situacao": "aguardando",
+      "tentativas": 0
+    },
+    {
+      "id": "2026-11-12-feed",
+      "tipo": "feed",
+      "quando": "2026-11-12T19:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-12.jpg",
+      "legenda": "Alguém pergunta como você está e a resposta sai antes de pensar: “tudo bem”.\nDe tanto repetir, vira piloto automático.\n\nO silêncio é um padrão aprendido cedo, que vira hábito.\nE o corpo continua avisando, com o peito apertado, a cabeça doendo, o estômago queimando.\n\nQuantas vezes você já disse “tudo bem” hoje sem pensar?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #autoconhecimento #saudeemocional #pilotoautomatico",
+      "situacao": "aguardando",
+      "tentativas": 0
+    },
+    {
+      "id": "2026-11-12-story",
+      "tipo": "story",
+      "quando": "2026-11-12T19:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-12.jpg",
+      "legenda": "",
+      "situacao": "aguardando",
+      "tentativas": 0
+    },
+    {
+      "id": "2026-11-14-feed",
+      "tipo": "feed",
+      "quando": "2026-11-14T19:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-14.jpg",
+      "legenda": "Antes de dormir, pega o celular e abre o bloco de notas.\nRepara no corpo primeiro: peito apertado, cabeça pesada, cansaço.\nDepois escreve uma frase honesta sobre como foi o dia. Só uma.\n\nNinguém vai ler. É o dia 1 do desafio da Micro-Verdade, que está no livro.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #autoconhecimento #saudeemocional #autocuidado",
+      "situacao": "aguardando",
+      "tentativas": 0
+    },
+    {
+      "id": "2026-11-14-story",
+      "tipo": "story",
+      "quando": "2026-11-14T19:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-14.jpg",
+      "legenda": "",
+      "situacao": "aguardando",
+      "tentativas": 0
+    }
+  ]
+}
