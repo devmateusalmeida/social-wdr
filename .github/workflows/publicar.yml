@@ -1,0 +1,29 @@
+# Acorda o publicador a cada 15 minutos (o GitHub às vezes atrasa alguns
+# minutos; o horário da fila vale como "a partir de"). Também dá pra rodar
+# na mão em Actions > Publicar > Run workflow. Pra pausar tudo:
+# Actions > Publicar > ... > Disable workflow.
+name: Publicar
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# nunca duas voltas ao mesmo tempo
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Publicar o que já passou do horário
+        env:
+          SEGREDOS: ${{ toJSON(secrets) }}
+        run: python3 publicar.py
