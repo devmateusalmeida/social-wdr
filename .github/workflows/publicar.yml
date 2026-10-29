@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Publicar o que já passou do horário
+        # um token por cliente; cliente novo = segredo novo + uma linha aqui
         env:
-          SEGREDOS: ${{ toJSON(secrets) }}
+          IG_TOKEN_TESTE_LIVRO: ${{ secrets.IG_TOKEN_TESTE_LIVRO }}
         run: python3 publicar.py

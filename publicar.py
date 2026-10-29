@@ -14,7 +14,7 @@ de 3 h atrasado vira "atrasado" e não sai sem alguém decidir. Erro e
 atraso fazem a execução falhar, e o GitHub manda e-mail.
 
 Token de cada cliente: segredo IG_TOKEN_<CLIENTE> no GitHub
-(teste-livro -> IG_TOKEN_TESTE_LIVRO).
+(teste-livro -> IG_TOKEN_TESTE_LIVRO), passado pelo nome no publicar.yml.
 """
 import json
 import os
@@ -32,7 +32,6 @@ API = "https://graph.instagram.com"
 BRASILIA = timezone(timedelta(hours=-3))
 ATRASO_MAXIMO = timedelta(hours=3)
 TENTATIVAS = 3
-SEGREDOS = json.loads(os.environ.get("SEGREDOS") or "{}")
 
 
 class ErroMeta(Exception):
@@ -166,7 +165,7 @@ def main():
     for arq in sorted((RAIZ / "fila").glob("*.json")):
         cliente = arq.stem
         itens = json.loads(arq.read_text(encoding="utf-8"))["itens"]
-        token = SEGREDOS.get("IG_TOKEN_" + cliente.upper().replace("-", "_"))
+        token = os.environ.get("IG_TOKEN_" + cliente.upper().replace("-", "_"))
         vencidos = [i for i in itens if i["situacao"] in ("aguardando", "publicando")
                     and datetime.fromisoformat(i["quando"]) <= agora]
         contagem = {s: sum(1 for i in itens if i["situacao"] == s) for s in {i["situacao"] for i in itens}}
