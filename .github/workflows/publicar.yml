@@ -1,4 +1,5 @@
-# Acorda o publicador a cada 15 minutos (o GitHub às vezes atrasa alguns
+# Acorda o publicador a cada 15 minutos, em minutos quebrados porque os
+# redondos (:00, :15...) são os mais congestionados no GitHub (às vezes atrasa alguns
 # minutos; o horário da fila vale como "a partir de"). Também dá pra rodar
 # na mão em Actions > Publicar > Run workflow. Pra pausar tudo:
 # Actions > Publicar > ... > Disable workflow.
@@ -6,7 +7,7 @@ name: Publicar
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
