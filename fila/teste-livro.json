@@ -1,6 +1,15 @@
 {
   "itens": [
     {
+      "id": "2026-10-30-story-teste",
+      "tipo": "story",
+      "quando": "2026-10-30T21:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-10-30-teste.jpg",
+      "legenda": "",
+      "situacao": "aguardando",
+      "tentativas": 0
+    },
+    {
       "id": "2026-11-10-feed",
       "tipo": "feed",
       "quando": "2026-11-10T19:00:00-03:00",
