@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+    inputs:
+      renovar_agora:
+        description: "Renovar os tokens agora, mesmo antes dos 30 dias"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -28,4 +33,7 @@ jobs:
         # um token por cliente; cliente novo = segredo novo + uma linha aqui
         env:
           IG_TOKEN_TESTE_LIVRO: ${{ secrets.IG_TOKEN_TESTE_LIVRO }}
+          # chave que deixa o robô gravar o token renovado (só segredos deste repositório)
+          GH_SEGREDOS: ${{ secrets.GH_SEGREDOS }}
+          RENOVAR_AGORA: ${{ inputs.renovar_agora }}
         run: python3 publicar.py
