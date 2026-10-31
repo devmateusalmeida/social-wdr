@@ -35,5 +35,7 @@ jobs:
           IG_TOKEN_TESTE_LIVRO: ${{ secrets.IG_TOKEN_TESTE_LIVRO }}
           # chave que deixa o robô gravar o token renovado (só segredos deste repositório)
           GH_SEGREDOS: ${{ secrets.GH_SEGREDOS }}
+          # bot do Telegram que leva os posts pra aprovação (um só pra WDR)
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           RENOVAR_AGORA: ${{ inputs.renovar_agora }}
         run: python3 publicar.py
