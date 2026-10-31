@@ -63,6 +63,8 @@ def pedir(metodo, arquivos=None, **params):
     corpo += f"--{limite}--\r\n".encode()
     pedido = urllib.request.Request(f"https://api.telegram.org/bot{token}/{metodo}", data=corpo,
                                     headers={"Content-Type": f"multipart/form-data; boundary={limite}"})
+    if not campos and not arquivos:  # pedido sem nenhum campo (getMe): formulário vazio o Telegram recusa
+        pedido = urllib.request.Request(f"https://api.telegram.org/bot{token}/{metodo}")
     try:
         with urllib.request.urlopen(pedido, timeout=60) as r:
             resposta = json.load(r)
@@ -120,6 +122,9 @@ def ler_cliques(salvar, agora):
     print(f"Telegram: {len(atualizacoes)} novidade(s)")
     avisos, lido = [], None
     for u in atualizacoes:
+        # número e tipo de cada novidade, pra achar clique perdido (número em sequência)
+        print(f"Telegram: novidade {u['update_id']} "
+              f"({'clique' if 'callback_query' in u else ', '.join(k for k in u if k != 'update_id')})")
         if not tratar(u, salvar, agora, avisos):
             # não gravou: fica sem marcar como lido e a próxima volta tenta de novo
             avisos.append("Telegram: um clique não foi gravado na fila, tento de novo na próxima volta "
@@ -153,8 +158,10 @@ def tratar(u, salvar, agora, avisos):
             pass  # clique antigo já não aceita resposta; a mensagem do grupo é que avisa
 
     msg = clique.get("message") or {}
+    partes = clique.get("data", "").split("|")
+    if len(partes) == 2 and partes[0] == "t":
+        return clique_de_teste(partes[1], msg, agora, responder, avisos)
     try:
-        partes = clique.get("data", "").split("|")
         if len(partes) == 3:
             partes.append("1")  # mensagem de antes da versão no botão
         acao, cliente, horario, versao_botao = partes
@@ -220,6 +227,27 @@ def tratar(u, salvar, agora, avisos):
                   text=f"{base}\n\n{situacao}", reply_markup={"inline_keyboard": []})
         except ErroTelegram as e:
             avisos.append(f"{cliente} {horario}: gravado na fila, mas não consegui mudar a mensagem do grupo ({e})")
+    return True
+
+
+def clique_de_teste(cliente, msg, agora, responder, avisos):
+    """Botão de teste (sistema/telegram.py testar): mostra no grupo que o clique chegou no robô"""
+    try:
+        grupo = config(cliente)["grupo"]
+    except ErroTelegram:
+        grupo = None
+    if msg.get("chat", {}).get("id") != grupo:
+        print(f"Telegram: clique de teste de outro grupo ({msg.get('chat', {}).get('id')}), ignorado")
+        responder()
+        return True
+    print(f"Telegram: clique de teste em {cliente}: recebido")
+    responder("Recebido")
+    try:
+        pedir("editMessageText", chat_id=grupo, message_id=msg["message_id"],
+              text=f"Clique de teste recebido pelo robô às {agora:%H:%M}. O grupo está funcionando.",
+              reply_markup={"inline_keyboard": []})
+    except ErroTelegram as e:
+        avisos.append(f"Telegram: recebi o clique de teste de {cliente}, mas não consegui mudar a mensagem ({e})")
     return True
 
 
