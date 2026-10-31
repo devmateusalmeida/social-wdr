@@ -6,9 +6,11 @@
       "quando": "2026-10-30T21:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-10-30-teste.jpg",
       "legenda": "",
-      "situacao": "publicando",
+      "situacao": "publicado",
       "tentativas": 0,
-      "caixa": "18233531893318835"
+      "caixa": "18233531893318835",
+      "instagram_id": "17994085719062072",
+      "publicado_em": "2026-10-30T21:00:32.330829-03:00"
     },
     {
       "id": "2026-11-10-feed",
