@@ -18,8 +18,15 @@ Só vale clique de quem está na lista do cliente, no grupo do cliente. A
 mensagem do grupo perde os botões e mostra quem decidiu. Clique repetido
 não muda nada. Cada vez que um horário é refeito (sistema/refazer.py) a
 versão sobe e o botão leva o número dela: botão de versão antiga não vale,
-pra ninguém aprovar sem ver a peça nova. O clique só é dado como lido no Telegram depois de gravado
+pra ninguém aprovar sem ver a peça nova. O clique só é dado como lido depois de gravado
 na fila; se a volta cair no meio, a próxima lê de novo sem estragar nada.
+
+Caixa do Cloudflare (cloudflare/caixa.js, endereço em "_caixa" no
+aprovacao.json, chave no segredo TELEGRAM_CAIXA_CHAVE): o Telegram só
+entrega clique pra quem está lendo naquele momento, então com o robô lendo a
+cada 5 min quase todo clique se perdia. Com a caixa, o Telegram entrega na
+hora pro Worker, que guarda, responde "Recebido" e acorda o robô; o robô lê
+a caixa no lugar do getUpdates. Sem "_caixa", volta ao jeito antigo (VPS).
 """
 import json
 import os
@@ -43,6 +50,31 @@ def config(cliente):
     if cliente not in tudo:
         raise ErroTelegram(f"{cliente} sem grupo de aprovação no aprovacao.json")
     return tudo[cliente]
+
+
+def caixa():
+    """Endereço da caixa do Cloudflare, ou None se o robô lê direto do Telegram"""
+    tudo = json.loads((RAIZ / "aprovacao.json").read_text(encoding="utf-8"))
+    return tudo.get("_caixa", "").rstrip("/") or None
+
+
+def pedir_caixa(caminho, corpo=None):
+    """GET /caixa (novidades não lidas; ?tudo=1 inclui as lidas nas últimas 24 h)
+    ou POST /lido com {"ids": [...]}. Erro vira ErroTelegram, sem a chave"""
+    chave = os.environ.get("TELEGRAM_CAIXA_CHAVE", "")
+    if not chave:
+        raise ErroTelegram("falta o TELEGRAM_CAIXA_CHAVE")
+    pedido = urllib.request.Request(
+        caixa() + caminho, data=None if corpo is None else json.dumps(corpo).encode(),
+        headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json",
+                 "User-Agent": "publicador-wdr"})
+    try:
+        with urllib.request.urlopen(pedido, timeout=30) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        raise ErroTelegram(f"a caixa do Cloudflare recusou ({e.code})") from None
+    except Exception as e:
+        raise ErroTelegram("sem conexão com a caixa do Cloudflare: " + str(e).replace(chave, "***")) from None
 
 
 def pedir(metodo, arquivos=None, **params):
@@ -93,7 +125,7 @@ def texto_do_dia(itens):
     legenda = f"Legenda do feed:\n\n{feed['legenda']}" if feed else "(story sai sem legenda)"
     return (f"{tipos} de {DIAS[quando.weekday()]}, {quando:%d/%m}, às {hora}{refeito}\n\n{legenda}\n\n"
             "Aprovar: sai no horário. Ajustar: segura o post e pede a mudança.\n"
-            "Depois do clique, a confirmação aparece aqui em até 5 min.")
+            "Depois do clique, a confirmação aparece aqui em até 1 min.")
 
 
 def enviar_dia(cliente, itens, artes):
@@ -115,12 +147,16 @@ def enviar_dia(cliente, itens, artes):
 def ler_cliques(salvar, agora):
     """Roda no publicador, antes de publicar. salvar é o do publicar.py
     (grava um item no GitHub). Devolve avisos pra quem cuida do robô"""
+    na_caixa = caixa()
     try:
-        atualizacoes = pedir("getUpdates", timeout=0, allowed_updates=["message", "callback_query"])
+        if na_caixa:
+            atualizacoes = pedir_caixa("/caixa")
+        else:
+            atualizacoes = pedir("getUpdates", timeout=0, allowed_updates=["message", "callback_query"])
     except ErroTelegram as e:
         return [f"Telegram: não consegui ler os cliques ({e}). Nada foi aprovado nesta volta."]
-    print(f"Telegram: {len(atualizacoes)} novidade(s)")
-    avisos, lido = [], None
+    print(f"Telegram: {len(atualizacoes)} novidade(s){' na caixa do Cloudflare' if na_caixa else ''}")
+    avisos, lidos = [], []
     for u in atualizacoes:
         # número e tipo de cada novidade, pra achar clique perdido (número em sequência)
         print(f"Telegram: novidade {u['update_id']} "
@@ -130,10 +166,13 @@ def ler_cliques(salvar, agora):
             avisos.append("Telegram: um clique não foi gravado na fila, tento de novo na próxima volta "
                           "(o Telegram guarda o clique por 24 h)")
             break
-        lido = u["update_id"]
-    if lido is not None:
+        lidos.append(u["update_id"])
+    if lidos:
         try:
-            pedir("getUpdates", offset=lido + 1, limit=1, timeout=0)  # marca como lido até aqui
+            if na_caixa:
+                pedir_caixa("/lido", {"ids": lidos})
+            else:
+                pedir("getUpdates", offset=lidos[-1] + 1, limit=1, timeout=0)  # marca como lido até aqui
         except ErroTelegram:
             pass  # a próxima volta lê de novo, e clique repetido não muda nada
     return avisos

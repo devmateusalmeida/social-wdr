@@ -37,5 +37,7 @@ jobs:
           GH_SEGREDOS: ${{ secrets.GH_SEGREDOS }}
           # bot do Telegram que leva os posts pra aprovação (um só pra WDR)
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          # chave da caixa do Cloudflare onde o Telegram entrega os cliques (cloudflare/caixa.js)
+          TELEGRAM_CAIXA_CHAVE: ${{ secrets.TELEGRAM_CAIXA_CHAVE }}
           RENOVAR_AGORA: ${{ inputs.renovar_agora }}
         run: python3 publicar.py
