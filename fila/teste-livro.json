@@ -30,13 +30,15 @@
       "id": "2026-10-31-1300-story-teste",
       "tipo": "story",
       "quando": "2026-10-31T13:00:00-03:00",
-      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-10-31-1300-teste.jpg",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-10-31-1300-teste-v2.jpg",
       "legenda": "",
-      "situacao": "ajuste",
+      "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/teste-ajuste-2026-10-31/story.jpg",
       "ajuste_pedido_por": "Mateus",
-      "ajuste_pedido_em": "2026-10-31T12:25:08.638080-03:00"
+      "ajuste_pedido_em": "2026-10-31T12:25:08.638080-03:00",
+      "versao": 2,
+      "refeito_em": "2026-10-31T12:26:26.998696-03:00"
     },
     {
       "id": "2026-11-10-feed",
