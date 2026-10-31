@@ -32,7 +32,7 @@
       "quando": "2026-10-31T13:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-10-31-1300-teste-v2.jpg",
       "legenda": "",
-      "situacao": "publicando",
+      "situacao": "publicado",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/teste-ajuste-2026-10-31/story.jpg",
       "ajuste_pedido_por": "Mateus",
@@ -41,7 +41,9 @@
       "refeito_em": "2026-10-31T12:26:26.998696-03:00",
       "aprovado_por": "Mateus",
       "aprovado_em": "2026-10-31T12:30:14.132053-03:00",
-      "caixa": "18233707327318835"
+      "caixa": "18233707327318835",
+      "instagram_id": "18643110127001225",
+      "publicado_em": "2026-10-31T13:00:29.482349-03:00"
     },
     {
       "id": "2026-11-10-feed",
