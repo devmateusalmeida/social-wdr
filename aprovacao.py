@@ -16,7 +16,9 @@ publicar:
            William refazer e mandar de novo)
 Só vale clique de quem está na lista do cliente, no grupo do cliente. A
 mensagem do grupo perde os botões e mostra quem decidiu. Clique repetido
-não muda nada. O clique só é dado como lido no Telegram depois de gravado
+não muda nada. Cada vez que um horário é refeito (sistema/refazer.py) a
+versão sobe e o botão leva o número dela: botão de versão antiga não vale,
+pra ninguém aprovar sem ver a peça nova. O clique só é dado como lido no Telegram depois de gravado
 na fila; se a volta cair no meio, a próxima lê de novo sem estragar nada.
 """
 import json
@@ -76,12 +78,18 @@ def pedir(metodo, arquivos=None, **params):
     return resposta["result"]
 
 
+def versao(itens):
+    return max(i.get("versao", 1) for i in itens)
+
+
 def texto_do_dia(itens):
     quando = datetime.fromisoformat(itens[0]["quando"])
     tipos = " e ".join(i["tipo"] for i in itens).capitalize()
+    hora = f"{quando:%H}h" + (f"{quando:%M}" if quando.minute else "")
+    refeito = f" (versão {versao(itens)}, refeita depois do ajuste)" if versao(itens) > 1 else ""
     feed = next((i for i in itens if i["tipo"] == "feed"), None)
     legenda = f"Legenda do feed:\n\n{feed['legenda']}" if feed else "(story sai sem legenda)"
-    return (f"{tipos} de {DIAS[quando.weekday()]}, {quando:%d/%m}, às {quando:%H}h\n\n{legenda}\n\n"
+    return (f"{tipos} de {DIAS[quando.weekday()]}, {quando:%d/%m}, às {hora}{refeito}\n\n{legenda}\n\n"
             "Aprovar: sai no horário. Ajustar: segura o post e pede a mudança.\n"
             "Depois do clique, a confirmação aparece aqui em até 5 min.")
 
@@ -96,8 +104,9 @@ def enviar_dia(cliente, itens, artes):
     else:
         pedir("sendMediaGroup", {f"foto{n}": artes[i["id"]] for n, i in enumerate(itens)}, chat_id=grupo,
               media=[{"type": "photo", "media": f"attach://foto{n}"} for n in range(len(itens))])
-    botoes = {"inline_keyboard": [[{"text": "Aprovar", "callback_data": f"a|{cliente}|{horario}"},
-                                   {"text": "Ajustar", "callback_data": f"j|{cliente}|{horario}"}]]}
+    v = versao(itens)
+    botoes = {"inline_keyboard": [[{"text": "Aprovar", "callback_data": f"a|{cliente}|{horario}|{v}"},
+                                   {"text": "Ajustar", "callback_data": f"j|{cliente}|{horario}|{v}"}]]}
     return pedir("sendMessage", chat_id=grupo, text=texto_do_dia(itens), reply_markup=botoes)["message_id"]
 
 
@@ -145,7 +154,11 @@ def tratar(u, salvar, agora, avisos):
 
     msg = clique.get("message") or {}
     try:
-        acao, cliente, horario = clique.get("data", "").split("|")
+        partes = clique.get("data", "").split("|")
+        if len(partes) == 3:
+            partes.append("1")  # mensagem de antes da versão no botão
+        acao, cliente, horario, versao_botao = partes
+        versao_botao = int(versao_botao)
         cfg = config(cliente)
     except (ValueError, ErroTelegram):
         print(f"Telegram: clique com dado desconhecido ({clique.get('data')!r}), ignorado")
@@ -171,9 +184,22 @@ def tratar(u, salvar, agora, avisos):
         de, para = (ESPERANDO, "aguardando"), {"situacao": "ajuste", "ajuste_pedido_por": nome,
                                                "ajuste_pedido_em": agora.isoformat()}
     fila = json.loads((RAIZ / "fila" / f"{cliente}.json").read_text(encoding="utf-8"))
+    do_horario = [i for i in fila["itens"] if i["quando"][:16] == horario]
+    if do_horario and versao_botao != versao(do_horario):
+        print(f"Telegram: {botao} em {cliente} {horario}: botão da versão {versao_botao}, "
+              f"a atual é {versao(do_horario)}, não valeu")
+        responder("Esse botão é de uma versão antiga. Use a mensagem mais nova.")
+        base = msg.get("text", "").rsplit("\n\n", 1)[0]
+        try:
+            pedir("editMessageText", chat_id=cfg["grupo"], message_id=msg["message_id"],
+                  text=f"{base}\n\nVERSÃO ANTIGA. Vale a mensagem mais nova deste horário.",
+                  reply_markup={"inline_keyboard": []})
+        except ErroTelegram:
+            pass
+        return True
     mudou = False
-    for item in fila["itens"]:
-        if item["quando"][:16] == horario and item["situacao"] in de:
+    for item in do_horario:
+        if item["situacao"] in de:
             if not salvar(cliente, item["id"], para, "aprovado" if acao == "a" else "ajuste pedido",
                           esperado=item["situacao"]):
                 return False
