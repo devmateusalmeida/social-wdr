@@ -83,7 +83,7 @@ def texto_do_dia(itens):
     legenda = f"Legenda do feed:\n\n{feed['legenda']}" if feed else "(story sai sem legenda)"
     return (f"{tipos} de {DIAS[quando.weekday()]}, {quando:%d/%m}, às {quando:%H}h\n\n{legenda}\n\n"
             "Aprovar: sai no horário. Ajustar: segura o post e pede a mudança.\n"
-            "Depois do clique, a confirmação aparece aqui em até 15 min.")
+            "Depois do clique, a confirmação aparece aqui em até 5 min.")
 
 
 def enviar_dia(cliente, itens, artes):
@@ -108,6 +108,7 @@ def ler_cliques(salvar, agora):
         atualizacoes = pedir("getUpdates", timeout=0, allowed_updates=["message", "callback_query"])
     except ErroTelegram as e:
         return [f"Telegram: não consegui ler os cliques ({e}). Nada foi aprovado nesta volta."]
+    print(f"Telegram: {len(atualizacoes)} novidade(s)")
     avisos, lido = [], None
     for u in atualizacoes:
         if not tratar(u, salvar, agora, avisos):
@@ -147,14 +148,17 @@ def tratar(u, salvar, agora, avisos):
         acao, cliente, horario = clique.get("data", "").split("|")
         cfg = config(cliente)
     except (ValueError, ErroTelegram):
+        print(f"Telegram: clique com dado desconhecido ({clique.get('data')!r}), ignorado")
         responder()
         return True
     if msg.get("chat", {}).get("id") != cfg["grupo"] or acao not in ("a", "j"):
+        print(f"Telegram: clique de outro grupo ({msg.get('chat', {}).get('id')}), ignorado")
         responder()
         return True
     botao = "Aprovar" if acao == "a" else "Ajustar"
     nome = cfg["aprovadores"].get(str(clique["from"]["id"]))
     if not nome:
+        print(f"Telegram: {botao} em {cliente} {horario}: pessoa fora da lista, não valeu")
         responder("Só quem está na lista de aprovadores pode clicar aqui.")
         avisar(cfg["grupo"], f"{clique['from'].get('first_name', 'Alguém')} clicou em {botao}, mas não está na lista "
                              f"de aprovadores deste cliente, então o clique não valeu. Pra incluir, o William põe "
@@ -174,6 +178,9 @@ def tratar(u, salvar, agora, avisos):
                           esperado=item["situacao"]):
                 return False
             mudou = True
+    situacoes = sorted({i["situacao"] for i in fila["itens"] if i["quando"][:16] == horario})
+    print(f"Telegram: {botao} em {cliente} {horario}: "
+          f"{'gravado' if mudou else 'nada mudou'} (antes: {', '.join(situacoes) or 'post não achado'})")
     responder("Recebido")
     if mudou:
         if acao == "a":
