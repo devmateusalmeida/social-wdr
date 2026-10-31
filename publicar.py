@@ -1,8 +1,10 @@
 """Publicador: roda no GitHub Actions a cada 15 minutos (passo 6).
 
 Abre cada fila/<cliente>.json e publica no Instagram o que já passou do
-horário. Cada item anda assim, salvando no GitHub a cada passo:
+horário. Antes, lê os cliques de aprovação no Telegram (aprovacao.py).
+Cada item anda assim, salvando no GitHub a cada passo:
 
+  esperando aprovação -> aguardando (clique em Aprovar no grupo do cliente)
   aguardando -> publicando        (salvo antes de falar com a Meta)
              -> caixa preparada   (número da Meta salvo antes de soltar)
              -> publicado         (número do post salvo)
@@ -34,6 +36,8 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+import aprovacao
 
 RAIZ = Path(__file__).resolve().parent
 API = "https://graph.instagram.com"
@@ -242,6 +246,11 @@ def main():
     agora = datetime.now(BRASILIA)
 
     avisos, tokens = [], {}
+    # aprovações primeiro, pra um clique de 8h55 já valer na volta das 9h
+    try:
+        avisos += aprovacao.ler_cliques(salvar, agora)
+    except Exception as e:  # problema no Telegram nunca pode parar o que já foi aprovado
+        avisos.append(f"Telegram: erro lendo os cliques ({type(e).__name__}: {e})")
     for arq in sorted((RAIZ / "fila").glob("*.json")):
         cliente = arq.stem
         itens = json.loads(arq.read_text(encoding="utf-8"))["itens"]
