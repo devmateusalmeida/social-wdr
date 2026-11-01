@@ -1,5 +1,8 @@
 {
   "_caixa": "https://caixa-aprovacao.aprovacao-wdr.workers.dev",
+  "_avisos": [
+    1874038076
+  ],
   "teste-livro": {
     "grupo": -5372885408,
     "aprovadores": {

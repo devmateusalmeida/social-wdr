@@ -45,6 +45,12 @@ class ErroTelegram(Exception):
     pass
 
 
+def aviso(codigo, texto, tipo="evento"):
+    """Aviso pra quem cuida do robô. avisos.py decide quando mandar pelo tipo:
+    evento (uma vez), problema (repete até resolver) ou passageiro (conexão)"""
+    return {"codigo": codigo, "texto": texto, "tipo": tipo}
+
+
 def config(cliente):
     tudo = json.loads((RAIZ / "aprovacao.json").read_text(encoding="utf-8"))
     if cliente not in tudo:
@@ -154,7 +160,8 @@ def ler_cliques(salvar, agora):
         else:
             atualizacoes = pedir("getUpdates", timeout=0, allowed_updates=["message", "callback_query"])
     except ErroTelegram as e:
-        return [f"Telegram: não consegui ler os cliques ({e}). Nada foi aprovado nesta volta."]
+        return [aviso("telegram-ler", f"Telegram: não consegui ler os cliques ({e}). Enquanto isso, "
+                                      f"nenhum clique de aprovação é gravado.", "passageiro")]
     print(f"Telegram: {len(atualizacoes)} novidade(s){' na caixa do Cloudflare' if na_caixa else ''}")
     avisos, lidos = [], []
     for u in atualizacoes:
@@ -163,8 +170,8 @@ def ler_cliques(salvar, agora):
               f"({'clique' if 'callback_query' in u else ', '.join(k for k in u if k != 'update_id')})")
         if not tratar(u, salvar, agora, avisos):
             # não gravou: fica sem marcar como lido e a próxima volta tenta de novo
-            avisos.append("Telegram: um clique não foi gravado na fila, tento de novo na próxima volta "
-                          "(o Telegram guarda o clique por 24 h)")
+            avisos.append(aviso("clique-nao-gravado", "Telegram: um clique não foi gravado na fila. Tento de "
+                                "novo a cada volta (o clique fica guardado por 24 h)", "passageiro"))
             break
         lidos.append(u["update_id"])
     if lidos:
@@ -183,8 +190,9 @@ def tratar(u, salvar, agora, avisos):
     msg = u.get("message")
     if msg:
         if msg.get("migrate_to_chat_id"):
-            avisos.append(f"O grupo {msg['chat'].get('title')} virou supergrupo: no aprovacao.json, trocar "
-                          f"{msg['chat']['id']} por {msg['migrate_to_chat_id']}")
+            avisos.append(aviso(f"supergrupo|{msg['chat']['id']}",
+                                f"O grupo {msg['chat'].get('title')} virou supergrupo: no aprovacao.json, trocar "
+                                f"{msg['chat']['id']} por {msg['migrate_to_chat_id']}"))
         return True
     clique = u.get("callback_query")
     if not clique:
@@ -265,7 +273,8 @@ def tratar(u, salvar, agora, avisos):
             pedir("editMessageText", chat_id=cfg["grupo"], message_id=msg["message_id"],
                   text=f"{base}\n\n{situacao}", reply_markup={"inline_keyboard": []})
         except ErroTelegram as e:
-            avisos.append(f"{cliente} {horario}: gravado na fila, mas não consegui mudar a mensagem do grupo ({e})")
+            avisos.append(aviso(f"editar|{cliente}|{horario}",
+                                f"{cliente} {horario}: gravado na fila, mas não consegui mudar a mensagem do grupo ({e})"))
     return True
 
 
@@ -286,7 +295,8 @@ def clique_de_teste(cliente, msg, agora, responder, avisos):
               text=f"Clique de teste recebido pelo robô às {agora:%H:%M}. O grupo está funcionando.",
               reply_markup={"inline_keyboard": []})
     except ErroTelegram as e:
-        avisos.append(f"Telegram: recebi o clique de teste de {cliente}, mas não consegui mudar a mensagem ({e})")
+        avisos.append(aviso(f"teste|{cliente}",
+                            f"Telegram: recebi o clique de teste de {cliente}, mas não consegui mudar a mensagem ({e})"))
     return True
 
 
@@ -297,4 +307,4 @@ def avisar(grupo, texto, responder_a=None, avisos=None):
         pedir("sendMessage", chat_id=grupo, text=texto, **extra)
     except ErroTelegram as e:
         if avisos is not None:
-            avisos.append(f"Telegram: não consegui avisar no grupo ({e})")
+            avisos.append(aviso(f"avisar-grupo|{grupo}", f"Telegram: não consegui avisar no grupo {grupo} ({e})"))

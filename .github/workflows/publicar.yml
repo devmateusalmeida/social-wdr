@@ -14,6 +14,10 @@ on:
         description: "Renovar os tokens agora, mesmo antes dos 30 dias"
         type: boolean
         default: false
+      testar_aviso:
+        description: "Mandar um aviso de teste no Telegram (a volta fica vermelha e chega e-mail também)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -40,4 +44,5 @@ jobs:
           # chave da caixa do Cloudflare onde o Telegram entrega os cliques (cloudflare/caixa.js)
           TELEGRAM_CAIXA_CHAVE: ${{ secrets.TELEGRAM_CAIXA_CHAVE }}
           RENOVAR_AGORA: ${{ inputs.renovar_agora }}
+          TESTAR_AVISO: ${{ inputs.testar_aviso }}
         run: python3 publicar.py

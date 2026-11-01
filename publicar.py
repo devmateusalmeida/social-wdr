@@ -12,8 +12,10 @@ Cada item anda assim, salvando no GitHub a cada passo:
 Se uma volta cai no meio, o item fica em "publicando" e a próxima pergunta
 à Meta se a caixa já saiu (PUBLISHED). Por isso nunca posta duas vezes.
 Falha passageira tenta de novo na volta seguinte; na 3ª vira "erro". Mais
-de 3 h atrasado vira "atrasado" e não sai sem alguém decidir. Erro e
-atraso fazem a execução falhar, e o GitHub manda e-mail.
+de 3 h atrasado vira "atrasado" e não sai sem alguém decidir. Erro, atraso
+e qualquer outro problema viram aviso no Telegram (avisos.py), na conversa
+privada de quem cuida do robô, sem repetir a cada volta. Quando sai aviso a
+execução falha, e o GitHub manda e-mail também.
 
 Token de cada cliente: segredo IG_TOKEN_<CLIENTE> no GitHub
 (teste-livro -> IG_TOKEN_TESTE_LIVRO), passado pelo nome no publicar.yml.
@@ -38,6 +40,13 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import aprovacao
+from aprovacao import aviso
+
+try:
+    import avisos as central
+except Exception as e:  # erro nos avisos nunca pode parar a publicação
+    central = None
+    print(f"Avisos: não carreguei o avisos.py ({type(e).__name__}: {e}), fica só o e-mail do GitHub")
 
 RAIZ = Path(__file__).resolve().parent
 API = "https://graph.instagram.com"
@@ -99,20 +108,25 @@ def segredo(cliente):
     return "IG_TOKEN_" + cliente.upper().replace("-", "_")
 
 
-def salvar_tokens(mudar, mensagem):
-    """Mesma ideia do salvar, pro tokens.json (só datas, nenhum token)"""
+def salvar_json(arq, mudar, mensagem):
+    """Mesma ideia do salvar, pra um arquivo inteiro (tokens.json, avisos.json)"""
     for _ in range(3):
         git("fetch", "-q", "origin", "main")
         git("reset", "-q", "--hard", "origin/main")
-        dados = json.loads(TOKENS.read_text(encoding="utf-8")) if TOKENS.exists() else {}
+        dados = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {}
         mudar(dados)
-        TOKENS.write_text(json.dumps(dados, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        git("add", "tokens.json")
+        arq.write_text(json.dumps(dados, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        git("add", arq.name)
         git("commit", "-q", "-m", mensagem)
         if git("push", "-q", "origin", "HEAD:main").returncode == 0:
             return True
         time.sleep(5)
     return False
+
+
+def salvar_tokens(mudar, mensagem):
+    """tokens.json: só datas, nenhum token"""
+    return salvar_json(TOKENS, mudar, mensagem)
 
 
 def renovar(cliente, token):
@@ -151,8 +165,9 @@ def cuidar_dos_tokens(tokens, agora):
             renovar(cliente, token)
         except ErroMeta as e:
             salvar_tokens(lambda d: d["clientes"][cliente].update(tentou_em=hoje), f"{cliente}: renovação do token falhou")
-            avisos.append(f"{cliente}: não consegui renovar o token ({idade} dias de uso, vence com 60). "
-                          f"Tento de novo amanhã. Erro: {e}")
+            avisos.append(aviso(f"renovar|{cliente}|{hoje}",
+                                f"{cliente}: não consegui renovar o token ({idade} dias de uso, vence com 60). "
+                                f"Tento de novo amanhã. Erro: {e}"))
             continue
         salvar_tokens(lambda d: d["clientes"].update({cliente: {"renovado_em": hoje}}), f"{cliente}: token renovado")
         print(f"{cliente}: token renovado, vale mais 60 dias")
@@ -160,8 +175,8 @@ def cuidar_dos_tokens(tokens, agora):
     vence = dados.get("chave_github_vence")
     if vence and agora.date() >= date.fromisoformat(vence) - timedelta(days=30) and dados.get("avisou_chave_em") != hoje:
         salvar_tokens(lambda d: d.update(avisou_chave_em=hoje), "aviso: GH_SEGREDOS perto de vencer")
-        avisos.append(f"a chave GH_SEGREDOS vence em {vence}. Gerar outra igual no GitHub, "
-                      f"trocar o segredo e mudar a data em tokens.json")
+        avisos.append(aviso(f"chave|GH_SEGREDOS|{hoje}", f"a chave GH_SEGREDOS vence em {vence}. Gerar outra "
+                            f"igual no GitHub, trocar o segredo e mudar a data em tokens.json"))
     return avisos
 
 
@@ -216,7 +231,8 @@ def processar(cliente, item, token, agora):
             atraso = agora - datetime.fromisoformat(item["quando"])
             if atraso > ATRASO_MAXIMO:
                 marcar({"situacao": "atrasado"}, "atrasado, não publicado")
-                return f"{nome}: {atraso.total_seconds() / 3600:.1f} h atrasado, ficou sem publicar pra alguém decidir"
+                return aviso(f"atrasado|{nome}", f"{nome}: {atraso.total_seconds() / 3600:.1f} h atrasado, "
+                                                 f"ficou sem publicar pra alguém decidir")
             caixa = preparar(item, token)
             if not marcar({"caixa": caixa}, "caixa preparada"):
                 return None  # sem o número salvo não solta; a caixa some sozinha em 24 h
@@ -234,7 +250,7 @@ def processar(cliente, item, token, agora):
                 "ultimo_erro": str(e)}, f"falhou ({tentativas}ª vez)")
         print(f"{nome}: falhou ({tentativas}ª vez): {e}")
         if final:
-            return f"{nome}: desistiu depois de {TENTATIVAS} tentativas. Último erro: {e}"
+            return aviso(f"erro|{nome}", f"{nome}: desistiu depois de {TENTATIVAS} tentativas. Último erro: {e}")
     return None
 
 
@@ -250,7 +266,10 @@ def main():
     try:
         avisos += aprovacao.ler_cliques(salvar, agora)
     except Exception as e:  # problema no Telegram nunca pode parar o que já foi aprovado
-        avisos.append(f"Telegram: erro lendo os cliques ({type(e).__name__}: {e})")
+        avisos.append(aviso("telegram-erro", f"Telegram: erro lendo os cliques ({type(e).__name__}: {e})", "problema"))
+    if os.environ.get("TESTAR_AVISO") == "true":  # caixa "Mandar um aviso de teste" no Run workflow
+        avisos.append(aviso(f"teste-aviso|{os.environ.get('GITHUB_RUN_ID')}",
+                            "Aviso de teste pedido no Run workflow. Se chegou aqui, os avisos estão funcionando."))
     for arq in sorted((RAIZ / "fila").glob("*.json")):
         cliente = arq.stem
         itens = json.loads(arq.read_text(encoding="utf-8"))["itens"]
@@ -262,16 +281,26 @@ def main():
         contagem = {s: sum(1 for i in itens if i["situacao"] == s) for s in {i["situacao"] for i in itens}}
         print(f"{cliente}: token {'ok' if token else 'FALTANDO'}, {len(vencidos)} pra publicar agora, {contagem}")
         if vencidos and not token:
-            avisos.append(f"{cliente}: falta o segredo {segredo(cliente)} no GitHub")
+            avisos.append(aviso(f"segredo|{cliente}", f"{cliente}: falta o segredo {segredo(cliente)} no GitHub, "
+                                                       f"nada desse cliente sai até colocar", "problema"))
             continue
         for item in vencidos:
-            aviso = processar(cliente, item, token, agora)
-            if aviso:
-                avisos.append(aviso)
+            problema = processar(cliente, item, token, agora)
+            if problema:
+                avisos.append(problema)
 
     avisos += cuidar_dos_tokens(tokens, agora)
     if avisos:
-        print("\nPRECISA DE ATENÇÃO:\n" + "\n".join(avisos))
+        print("\nPRECISA DE ATENÇÃO:\n" + "\n".join(a["texto"] if isinstance(a, dict) else a for a in avisos))
+    if not central:
+        vermelho = bool(avisos)
+    else:
+        try:
+            vermelho = central.cuidar(avisos, agora, salvar_json)
+        except Exception as e:  # aviso quebrado: fica o e-mail do GitHub
+            print(f"Avisos: erro no avisos.py ({type(e).__name__}: {e})")
+            vermelho = True
+    if vermelho:
         sys.exit(1)
 
 
