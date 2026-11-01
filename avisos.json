@@ -5,6 +5,12 @@
       "visto": "2026-10-31T23:47:09.881486-03:00",
       "texto": "Aviso de teste pedido no Run workflow. Se chegou aqui, os avisos estão funcionando.",
       "avisado": "2026-10-31T23:47:09.881486-03:00"
+    },
+    "parado|2026-11-01T04:55": {
+      "tipo": "evento",
+      "visto": "2026-11-01T05:00:18.649049-03:00",
+      "texto": "O robô ficou 65 min sem rodar (de 01/11 04:55 a 01/11 06:00). O despertador do cron-job.org deve ter parado: conferir o histórico do trabalho em console.cron-job.org e se a chave despertador-social-wdr ainda vale.",
+      "avisado": "2026-11-01T05:00:18.649049-03:00"
     }
   }
 }
