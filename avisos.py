@@ -96,8 +96,8 @@ def cuidar(lista, agora, salvar_json):
     novos, repetidos, resolvidos = [], [], []
 
     for codigo, a in atuais.items():
-        r = abertos.setdefault(codigo, {"tipo": a["tipo"], "visto": agora.isoformat()})
-        r["texto"] = a["texto"][:300]
+        # o texto fica o da primeira vez: erro com detalhe diferente a cada volta não grava a cada volta
+        r = abertos.setdefault(codigo, {"tipo": a["tipo"], "visto": agora.isoformat(), "texto": a["texto"][:300]})
         avisado = r.get("avisado")
         if avisado:
             if a["tipo"] != "evento" and agora - datetime.fromisoformat(avisado) >= REPETIR:

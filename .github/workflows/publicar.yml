@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: write
+  actions: read  # o robô olha a volta anterior pra saber se o despertador parou
 
 # nunca duas voltas ao mesmo tempo
 concurrency:
@@ -45,4 +46,6 @@ jobs:
           TELEGRAM_CAIXA_CHAVE: ${{ secrets.TELEGRAM_CAIXA_CHAVE }}
           RENOVAR_AGORA: ${{ inputs.renovar_agora }}
           TESTAR_AVISO: ${{ inputs.testar_aviso }}
+          # chave da própria volta, criada e apagada pelo GitHub, só pra ler a lista de voltas
+          GH_LEITURA: ${{ github.token }}
         run: python3 publicar.py

@@ -24,9 +24,17 @@ Renovação: o token do Instagram vale 60 dias. O tokens.json guarda só a
 data da última renovação de cada cliente (nenhum token). Passou de 30 dias,
 o robô pede um token novo à Meta e grava por cima do segredo, usando a
 chave GH_SEGREDOS (só mexe nos segredos deste repositório). Falhou, tenta
-de novo no dia seguinte e avisa por e-mail. Cliente novo entra no
-tokens.json sozinho, com a data do dia. Um mês antes da GH_SEGREDOS vencer
-(data em chave_github_vence), avisa uma vez por dia.
+de novo no dia seguinte e avisa. Cliente novo entra no tokens.json sozinho,
+com a data do dia.
+
+Vencimentos: o tokens.json lista as chaves que vencem (GH_SEGREDOS, a do
+cron-job.org, a GH_DESPERTADOR do Cloudflare, a versão da API do GitHub),
+com a data e o que fazer. O robô avisa 30, 7 e 1 dia antes, e a cada 12 h
+depois de vencida, até alguém mudar a data.
+
+Robô parado: o cron-job.org acorda o robô a cada 5 min. Se a volta anterior
+foi há mais de 30 min, o despertador falhou e esta volta veio do agendamento
+do GitHub (que roda quando dá); o robô avisa.
 """
 import json
 import os
@@ -55,6 +63,7 @@ ATRASO_MAXIMO = timedelta(hours=3)
 TENTATIVAS = 3
 TOKENS = RAIZ / "tokens.json"
 RENOVAR_COM = timedelta(days=30)
+PARADO = timedelta(minutes=30)
 
 
 class ErroMeta(Exception):
@@ -172,12 +181,51 @@ def cuidar_dos_tokens(tokens, agora):
         salvar_tokens(lambda d: d["clientes"].update({cliente: {"renovado_em": hoje}}), f"{cliente}: token renovado")
         print(f"{cliente}: token renovado, vale mais 60 dias")
 
-    vence = dados.get("chave_github_vence")
-    if vence and agora.date() >= date.fromisoformat(vence) - timedelta(days=30) and dados.get("avisou_chave_em") != hoje:
-        salvar_tokens(lambda d: d.update(avisou_chave_em=hoje), "aviso: GH_SEGREDOS perto de vencer")
-        avisos.append(aviso(f"chave|GH_SEGREDOS|{hoje}", f"a chave GH_SEGREDOS vence em {vence}. Gerar outra "
-                            f"igual no GitHub, trocar o segredo e mudar a data em tokens.json"))
+    for nome, v in dados.get("vencimentos", {}).items():
+        vence = date.fromisoformat(v["vence"])
+        dias = (vence - agora.date()).days
+        if dias > 30:
+            continue
+        etapa = "venceu" if dias <= 0 else "1" if dias <= 1 else "7" if dias <= 7 else "30"
+        quando = "já venceu" if dias <= 0 else f"falta {dias} dia" if dias == 1 else f"faltam {dias} dias"
+        avisos.append(aviso(f"vence|{nome}|{etapa}",
+                            f"{nome} vence em {vence:%d/%m/%Y} ({quando}). {v['o_que_fazer']} Depois, mudar a data "
+                            f"em vencimentos no tokens.json.", "problema" if etapa == "venceu" else "evento"))
     return avisos
+
+
+def ler_voltas():
+    """Últimas voltas deste robô, pela API do GitHub (chave da própria volta, só leitura)"""
+    chave = os.environ.get("GH_LEITURA")
+    pedido = urllib.request.Request(
+        f"https://api.github.com/repos/{os.environ.get('GITHUB_REPOSITORY')}/actions/workflows/publicar.yml/runs"
+        "?per_page=10", headers={"Accept": "application/vnd.github+json", "User-Agent": "publicador-wdr",
+                                 **({"Authorization": f"Bearer {chave}"} if chave else {})})
+    with urllib.request.urlopen(pedido, timeout=30) as r:
+        return json.load(r)["workflow_runs"]
+
+
+def robo_parado(agora):
+    """Avisa se a volta anterior foi há mais de 30 min (despertador do cron-job.org falhou)"""
+    try:
+        voltas = ler_voltas()
+    except Exception as e:
+        print(f"Não consegui ver a volta anterior ({type(e).__name__}), sigo sem conferir")
+        return []
+    def criada(v):
+        return datetime.fromisoformat(v["created_at"].replace("Z", "+00:00")).astimezone(BRASILIA)
+    atual = next((v for v in voltas if str(v["id"]) == os.environ.get("GITHUB_RUN_ID")), None)
+    esta = criada(atual) if atual else agora
+    antes = [criada(v) for v in voltas if v is not atual and criada(v) < esta]
+    if not antes or esta - max(antes) <= PARADO:
+        return []
+    anterior = max(antes)
+    minutos = int((esta - anterior).total_seconds() // 60)
+    duracao = f"{minutos} min" if minutos < 120 else f"{minutos / 60:.1f} h".replace(".", ",")
+    return [aviso(f"parado|{anterior:%Y-%m-%dT%H:%M}",
+                  f"O robô ficou {duracao} sem rodar (de {anterior:%d/%m %H:%M} a {esta:%d/%m %H:%M}). O despertador "
+                  f"do cron-job.org deve ter parado: conferir o histórico do trabalho em console.cron-job.org e se a "
+                  f"chave despertador-social-wdr ainda vale.")]
 
 
 def situacao_caixa(caixa, token):
@@ -261,12 +309,17 @@ def main():
     git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
     agora = datetime.now(BRASILIA)
 
-    avisos, tokens = [], {}
+    avisos, tokens = robo_parado(agora), {}
     # aprovações primeiro, pra um clique de 8h55 já valer na volta das 9h
     try:
         avisos += aprovacao.ler_cliques(salvar, agora)
     except Exception as e:  # problema no Telegram nunca pode parar o que já foi aprovado
         avisos.append(aviso("telegram-erro", f"Telegram: erro lendo os cliques ({type(e).__name__}: {e})", "problema"))
+    try:
+        avisos += aprovacao.conferir_entrega(agora)
+    except Exception as e:
+        avisos.append(aviso("entrega-conferir", f"Telegram: erro conferindo a entrega na caixa ({type(e).__name__}: {e})",
+                            "problema"))
     if os.environ.get("TESTAR_AVISO") == "true":  # caixa "Mandar um aviso de teste" no Run workflow
         avisos.append(aviso(f"teste-aviso|{os.environ.get('GITHUB_RUN_ID')}",
                             "Aviso de teste pedido no Run workflow. Se chegou aqui, os avisos estão funcionando."))

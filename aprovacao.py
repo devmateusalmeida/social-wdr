@@ -83,6 +83,31 @@ def pedir_caixa(caminho, corpo=None):
         raise ErroTelegram("sem conexão com a caixa do Cloudflare: " + str(e).replace(chave, "***")) from None
 
 
+def conferir_entrega(agora):
+    """Com a caixa ligada, pergunta ao Telegram se ele está conseguindo entregar nela
+    (o mesmo que o telegram.py caixa mostra). Devolve avisos"""
+    na_caixa = caixa()
+    if not na_caixa:
+        return []
+    try:
+        info = pedir("getWebhookInfo")
+    except ErroTelegram as e:
+        return [aviso("telegram-info", f"Telegram: não consegui perguntar se a entrega na caixa está ok ({e})",
+                      "passageiro")]
+    if info.get("url") != na_caixa + "/telegram":
+        return [aviso("entrega-desligada", "Telegram: a entrega na caixa do Cloudflare está desligada, então os "
+                                           "cliques de aprovação não chegam no robô. Ligar de novo no PC: "
+                                           "python sistema/telegram.py caixa ligar", "problema")]
+    pendentes, erro = info.get("pending_update_count", 0), info.get("last_error_date", 0)
+    print(f"Telegram: entrega na caixa ligada, {pendentes} esperando entrega")
+    if pendentes and erro and agora.timestamp() - erro < 30 * 60:
+        return [aviso("entrega-erro", f"Telegram: não está conseguindo entregar na caixa do Cloudflare "
+                                      f"({info.get('last_error_message')}), {pendentes} clique(s) esperando. Conferir "
+                                      f"no PC com python sistema/telegram.py caixa e olhar o Worker caixa-aprovacao no "
+                                      f"painel do Cloudflare", "passageiro")]
+    return []
+
+
 def pedir(metodo, arquivos=None, **params):
     """Chama a API do bot. Com arquivos, manda as imagens do PC junto (não
     depende do Pages já estar no ar). Erro vira ErroTelegram, sem o token"""
