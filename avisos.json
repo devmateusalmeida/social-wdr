@@ -17,6 +17,12 @@
       "visto": "2026-11-03T16:30:17.553594-03:00",
       "texto": "teste-livro: o feed e story de terça, 03/11, às 18h30 está sem aprovação. Chamar o cliente no grupo. Sem aprovação até as 20h30 de 03/11, não sai.",
       "avisado": "2026-11-03T16:30:17.553594-03:00"
+    },
+    "passou|teste-livro|2026-11-03T18:30|v1": {
+      "tipo": "evento",
+      "visto": "2026-11-03T20:30:15.131239-03:00",
+      "texto": "teste-livro: o feed e story de terça, 03/11, às 18h30 não saiu, passaram 2 h do horário sem aprovação. Pra remarcar: python sistema/refazer.py teste-livro 2026-11-03T18:30 --para AAAA-MM-DDTHH:MM",
+      "avisado": "2026-11-03T20:30:15.131239-03:00"
     }
   }
 }
