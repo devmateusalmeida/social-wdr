@@ -51,14 +51,16 @@
       "quando": "2026-11-03T15:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-17-teste.jpg",
       "legenda": "O carro da frente demora no sinal e você já está buzinando.\nChega em casa e qualquer pergunta parece cobrança.\n\nA paciência não acabou do nada.\nO dia inteiro ficou guardado, e o que não foi dito acaba saindo por outro lado.\n\nO que você engoliu hoje antes de pegar o trânsito?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #estresse #transito #saudeemocional",
-      "situacao": "publicando",
+      "situacao": "publicado",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/semana-2026-11-16/feed-11-17.jpg",
       "enviado_em": "2026-11-03T12:31:49.689365-03:00",
       "mensagem": 18,
       "aprovado_por": "Mateus",
       "aprovado_em": "2026-11-03T13:01:29.731730-03:00",
-      "caixa": "18234447121318835"
+      "caixa": "18234447121318835",
+      "instagram_id": "18436773808144361",
+      "publicado_em": "2026-11-03T15:01:03.720514-03:00"
     },
     {
       "id": "2026-11-17-story-teste",
