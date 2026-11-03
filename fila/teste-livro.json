@@ -46,6 +46,72 @@
       "publicado_em": "2026-10-31T13:00:29.482349-03:00"
     },
     {
+      "id": "2026-11-17-feed-teste",
+      "tipo": "feed",
+      "quando": "2026-11-03T15:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-17-teste.jpg",
+      "legenda": "O carro da frente demora no sinal e você já está buzinando.\nChega em casa e qualquer pergunta parece cobrança.\n\nA paciência não acabou do nada.\nO dia inteiro ficou guardado, e o que não foi dito acaba saindo por outro lado.\n\nO que você engoliu hoje antes de pegar o trânsito?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #estresse #transito #saudeemocional",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-livro/lotes/semana-2026-11-16/feed-11-17.jpg",
+      "enviado_em": "2026-11-03T12:31:10.828776-03:00"
+    },
+    {
+      "id": "2026-11-17-story-teste",
+      "tipo": "story",
+      "quando": "2026-11-03T15:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-17-teste.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-livro/lotes/semana-2026-11-16/story-11-17.jpg",
+      "enviado_em": "2026-11-03T12:31:10.829777-03:00"
+    },
+    {
+      "id": "2026-11-19-feed-teste",
+      "tipo": "feed",
+      "quando": "2026-11-03T17:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-19-teste.jpg",
+      "legenda": "Alguém pergunta o que você está sentindo e a resposta sai: “não sei”.\nE muitas vezes é verdade.\n\nO peito aperta, o estômago queima, a cabeça dói.\nO sentimento está ali, só não chegou a virar palavra.\n\nDar nome ao que sente se aprende, como qualquer outra coisa.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #emocoes #autoconhecimento #saudeemocional",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-livro/lotes/semana-2026-11-16/feed-11-19.jpg",
+      "enviado_em": "2026-11-03T12:31:10.830778-03:00"
+    },
+    {
+      "id": "2026-11-19-story-teste",
+      "tipo": "story",
+      "quando": "2026-11-03T17:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-19-teste.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-livro/lotes/semana-2026-11-16/story-11-19.jpg",
+      "enviado_em": "2026-11-03T12:31:10.830778-03:00"
+    },
+    {
+      "id": "2026-11-21-feed-teste",
+      "tipo": "feed",
+      "quando": "2026-11-03T18:30:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-21-teste.jpg",
+      "legenda": "Te perguntam como você está e o “tudo bem” já está na ponta da língua.\nHoje dá pra tentar outra coisa.\n\n“O dia está corrido.”\n“Estou um pouco cansado hoje.”\n\nÉ pequeno, e é verdade. É o dia 3 do desafio da Micro-Verdade do livro.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #microverdade #autocuidado #saudeemocional",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-livro/lotes/semana-2026-11-16/feed-11-21.jpg",
+      "enviado_em": "2026-11-03T12:31:10.831779-03:00"
+    },
+    {
+      "id": "2026-11-21-story-teste",
+      "tipo": "story",
+      "quando": "2026-11-03T18:30:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-21-teste.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-livro/lotes/semana-2026-11-16/story-11-21.jpg",
+      "enviado_em": "2026-11-03T12:31:10.832780-03:00"
+    },
+    {
       "id": "2026-11-10-feed",
       "tipo": "feed",
       "quando": "2026-11-10T19:00:00-03:00",
