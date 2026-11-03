@@ -106,7 +106,7 @@
       "quando": "2026-11-03T17:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-19-teste-v2.jpg",
       "legenda": "",
-      "situacao": "aguardando",
+      "situacao": "publicando",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/semana-2026-11-16/story-11-19.jpg",
       "enviado_em": "2026-11-03T13:25:52.059546-03:00",
