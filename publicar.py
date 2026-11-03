@@ -1,7 +1,8 @@
-"""Publicador: roda no GitHub Actions a cada 15 minutos (passo 6).
+"""Publicador: roda no GitHub Actions a cada 5 minutos (passo 6).
 
 Abre cada fila/<cliente>.json e publica no Instagram o que já passou do
-horário. Antes, lê os cliques de aprovação no Telegram (aprovacao.py).
+horário. Antes, lê os cliques de aprovação no Telegram e cuida do prazo de
+cada horário: lembretes, aviso 2 h antes e "passou do horário" (aprovacao.py).
 Cada item anda assim, salvando no GitHub a cada passo:
 
   esperando aprovação -> aguardando (clique em Aprovar no grupo do cliente)
@@ -12,7 +13,7 @@ Cada item anda assim, salvando no GitHub a cada passo:
 Se uma volta cai no meio, o item fica em "publicando" e a próxima pergunta
 à Meta se a caixa já saiu (PUBLISHED). Por isso nunca posta duas vezes.
 Falha passageira tenta de novo na volta seguinte; na 3ª vira "erro". Mais
-de 3 h atrasado vira "atrasado" e não sai sem alguém decidir. Erro, atraso
+de 2 h atrasado vira "atrasado" e não sai sem alguém decidir. Erro, atraso
 e qualquer outro problema viram aviso no Telegram (avisos.py), na conversa
 privada de quem cuida do robô, sem repetir a cada volta. Quando sai aviso a
 execução falha, e o GitHub manda e-mail também.
@@ -34,7 +35,10 @@ depois de vencida, até alguém mudar a data.
 
 Robô parado: o cron-job.org acorda o robô a cada 5 min. Se a volta anterior
 foi há mais de 30 min, o despertador falhou e esta volta veio do agendamento
-do GitHub (que roda quando dá); o robô avisa.
+do GitHub (que roda quando dá); o robô avisa. A volta anterior é a de número
+menor, e a conta usa o relógio desta volta: em 01/11/2026, no fim do horário
+de verão dos EUA, o GitHub informou por 1 h o horário das voltas com 1 h a
+mais e o robô avisou um buraco que não existiu.
 """
 import json
 import os
@@ -48,7 +52,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import aprovacao
-from aprovacao import aviso
+from aprovacao import ATRASO_MAXIMO, aviso
 
 try:
     import avisos as central
@@ -59,7 +63,6 @@ except Exception as e:  # erro nos avisos nunca pode parar a publicação
 RAIZ = Path(__file__).resolve().parent
 API = "https://graph.instagram.com"
 BRASILIA = timezone(timedelta(hours=-3))
-ATRASO_MAXIMO = timedelta(hours=3)
 TENTATIVAS = 3
 TOKENS = RAIZ / "tokens.json"
 RENOVAR_COM = timedelta(days=30)
@@ -212,14 +215,16 @@ def robo_parado(agora):
     except Exception as e:
         print(f"Não consegui ver a volta anterior ({type(e).__name__}), sigo sem conferir")
         return []
-    def criada(v):
-        return datetime.fromisoformat(v["created_at"].replace("Z", "+00:00")).astimezone(BRASILIA)
-    atual = next((v for v in voltas if str(v["id"]) == os.environ.get("GITHUB_RUN_ID")), None)
-    esta = criada(atual) if atual else agora
-    antes = [criada(v) for v in voltas if v is not atual and criada(v) < esta]
-    if not antes or esta - max(antes) <= PARADO:
+    atual = int(os.environ.get("GITHUB_RUN_ID") or 0)
+    antes = [v for v in voltas if not atual or int(v["id"]) < atual]
+    if not antes:
         return []
-    anterior = max(antes)
+    # horário errado do GitHub só deixa a anterior mais perto (ou no futuro): pode perder um aviso, nunca inventar
+    esta = agora
+    anterior = datetime.fromisoformat(max(antes, key=lambda v: int(v["id"]))["created_at"]
+                                      .replace("Z", "+00:00")).astimezone(BRASILIA)
+    if esta - anterior <= PARADO:
+        return []
     minutos = int((esta - anterior).total_seconds() // 60)
     duracao = f"{minutos} min" if minutos < 120 else f"{minutos / 60:.1f} h".replace(".", ",")
     return [aviso(f"parado|{anterior:%Y-%m-%dT%H:%M}",
@@ -325,7 +330,12 @@ def main():
                             "Aviso de teste pedido no Run workflow. Se chegou aqui, os avisos estão funcionando."))
     for arq in sorted((RAIZ / "fila").glob("*.json")):
         cliente = arq.stem
-        itens = json.loads(arq.read_text(encoding="utf-8"))["itens"]
+        try:
+            avisos += aprovacao.cuidar_dos_horarios(cliente, salvar, agora)
+        except Exception as e:  # lembrete quebrado nunca pode parar a publicação
+            avisos.append(aviso(f"prazo|{cliente}", f"{cliente}: erro nos lembretes e no prazo de aprovação "
+                                                    f"({type(e).__name__}: {e})", "problema"))
+        itens = json.loads(arq.read_text(encoding="utf-8"))["itens"]  # lido depois: o prazo pode ter mudado a fila
         token = os.environ.get(segredo(cliente))
         if token:
             tokens[cliente] = token
