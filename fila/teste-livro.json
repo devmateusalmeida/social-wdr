@@ -82,11 +82,12 @@
       "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/semana-2026-11-16/feed-11-19.jpg",
-      "enviado_em": "2026-11-03T13:25:46.054719-03:00",
+      "enviado_em": "2026-11-03T13:25:52.059546-03:00",
       "ajuste_pedido_por": "Mateus",
       "ajuste_pedido_em": "2026-11-03T13:23:25.391456-03:00",
       "versao": 2,
-      "refeito_em": "2026-11-03T13:25:46.054719-03:00"
+      "refeito_em": "2026-11-03T13:25:46.054719-03:00",
+      "mensagem": 28
     },
     {
       "id": "2026-11-19-story-teste",
@@ -97,11 +98,12 @@
       "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/semana-2026-11-16/story-11-19.jpg",
-      "enviado_em": "2026-11-03T13:25:46.054719-03:00",
+      "enviado_em": "2026-11-03T13:25:52.059546-03:00",
       "ajuste_pedido_por": "Mateus",
       "ajuste_pedido_em": "2026-11-03T13:23:25.391456-03:00",
       "versao": 2,
-      "refeito_em": "2026-11-03T13:25:46.054719-03:00"
+      "refeito_em": "2026-11-03T13:25:46.054719-03:00",
+      "mensagem": 28
     },
     {
       "id": "2026-11-21-feed-teste",
