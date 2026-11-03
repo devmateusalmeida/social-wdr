@@ -93,11 +93,13 @@
       "quando": "2026-11-03T17:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-19-teste.jpg",
       "legenda": "",
-      "situacao": "esperando aprovação",
+      "situacao": "ajuste",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/semana-2026-11-16/story-11-19.jpg",
       "enviado_em": "2026-11-03T12:31:49.689365-03:00",
-      "mensagem": 21
+      "mensagem": 21,
+      "ajuste_pedido_por": "Mateus",
+      "ajuste_pedido_em": "2026-11-03T13:23:25.391456-03:00"
     },
     {
       "id": "2026-11-21-feed-teste",
