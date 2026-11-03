@@ -127,7 +127,7 @@
       "quando": "2026-11-03T18:30:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-21-teste.jpg",
       "legenda": "Te perguntam como você está e o “tudo bem” já está na ponta da língua.\nHoje dá pra tentar outra coisa.\n\n“O dia está corrido.”\n“Estou um pouco cansado hoje.”\n\nÉ pequeno, e é verdade. É o dia 3 do desafio da Micro-Verdade do livro.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #microverdade #autocuidado #saudeemocional",
-      "situacao": "esperando aprovação",
+      "situacao": "passou do horário",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/semana-2026-11-16/feed-11-21.jpg",
       "enviado_em": "2026-11-03T12:31:49.689365-03:00",
@@ -135,7 +135,8 @@
       "lembretes": {
         "24h": 0,
         "2h": 33
-      }
+      },
+      "passou_em": "2026-11-03T20:30:15.131239-03:00"
     },
     {
       "id": "2026-11-21-story-teste",
