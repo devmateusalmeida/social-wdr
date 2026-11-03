@@ -85,7 +85,7 @@
       "quando": "2026-11-03T17:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/feed-2026-11-19-teste-v2.jpg",
       "legenda": "Alguém pergunta o que você está sentindo e a resposta sai: “não sei”.\nE muitas vezes é verdade.\n\nO peito aperta, o estômago queima, a cabeça dói.\nO sentimento está ali, só não chegou a virar palavra.\n\nDar nome ao que sente se aprende, como qualquer outra coisa.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #emocoes #autoconhecimento #saudeemocional",
-      "situacao": "publicando",
+      "situacao": "publicado",
       "tentativas": 0,
       "origem": "clientes/teste-livro/lotes/semana-2026-11-16/feed-11-19.jpg",
       "enviado_em": "2026-11-03T13:25:52.059546-03:00",
@@ -96,7 +96,9 @@
       "mensagem": 28,
       "aprovado_por": "Mateus",
       "aprovado_em": "2026-11-03T17:51:52.847904-03:00",
-      "caixa": "18234470590318835"
+      "caixa": "18234470590318835",
+      "instagram_id": "18013158353993636",
+      "publicado_em": "2026-11-03T17:52:59.407653-03:00"
     },
     {
       "id": "2026-11-19-story-teste",
