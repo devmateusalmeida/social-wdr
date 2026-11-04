@@ -180,8 +180,23 @@ def limite(itens):
     return f"{hora(fim)} de {fim:%d/%m}"
 
 
+def o_que_mudou(itens):
+    """Por que o horário tem versão nova, ex.: refeita depois do ajuste e remarcada. O refazer.py anota em
+    "motivo_da_versao" (ajuste, peça nova, remarcado). Ficha de antes disso: com ajuste pedido foi refeita
+    depois do ajuste; sem, só pode ter sido remarcada (sem --para o refazer.py só aceita post em ajuste)"""
+    motivo = next((i["motivo_da_versao"] for i in itens if "motivo_da_versao" in i), None)
+    if motivo is None:
+        motivo = ["ajuste", "peça nova"] if any(i.get("ajuste_pedido_por") for i in itens) else ["remarcado"]
+    partes = []
+    if "peça nova" in motivo:
+        partes.append("refeita depois do ajuste" if "ajuste" in motivo else "refeita")
+    if "remarcado" in motivo:
+        partes.append("remarcada")
+    return " e ".join(partes) or "refeita"
+
+
 def texto_do_dia(itens):
-    refeito = f" (versão {versao(itens)}, refeita depois do ajuste)" if versao(itens) > 1 else ""
+    refeito = f" (versão {versao(itens)}, {o_que_mudou(itens)})" if versao(itens) > 1 else ""
     feed = next((i for i in itens if i["tipo"] == "feed"), None)
     legenda = f"Legenda do feed:\n\n{feed['legenda']}" if feed else "(story sai sem legenda)"
     return (f"{nome_do_horario(itens).capitalize()}{refeito}\n\n{legenda}\n\n"
