@@ -1,0 +1,70 @@
+{
+  "itens": [
+    {
+      "id": "2026-11-05-feed",
+      "tipo": "feed",
+      "quando": "2026-11-05T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-05.jpg",
+      "legenda": "Pontas secas e nenhuma vontade de mudar a rotina inteira? 🌿\n\nAntes do xampu, passe o gel transparente da babosa só nas pontas.\nDeixe uns minutos e lave do jeito que você já lava.\nNa cosmética, a babosa é usada sobretudo pela ação hidratante. Começar pelas pontas é o jeito mais simples de testar no seu cabelo.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #pontasressecadas #cuidadoscapilares",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/feed-11-05.jpg",
+      "enviado_em": "2026-11-04T22:43:26.345247-03:00"
+    },
+    {
+      "id": "2026-11-05-story",
+      "tipo": "story",
+      "quando": "2026-11-05T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-05.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/story-11-05.jpg",
+      "enviado_em": "2026-11-04T22:43:26.351253-03:00"
+    },
+    {
+      "id": "2026-11-06-feed",
+      "tipo": "feed",
+      "quando": "2026-11-06T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-06.jpg",
+      "legenda": "Já se perguntou o que tem dentro daquele gel? 🌿\n\nAté 99% dele é água.\nO resto são cerca de 200 compostos, como polissacarídeos, aminoácidos, vitaminas e minerais.\nNa cosmética, a babosa é usada sobretudo pela ação hidratante, e aparece em xampu, condicionador e tônico capilar.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #cuidadoscapilares #hidratacaocapilar",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/feed-11-06.jpg",
+      "enviado_em": "2026-11-04T22:43:26.357258-03:00"
+    },
+    {
+      "id": "2026-11-06-story",
+      "tipo": "story",
+      "quando": "2026-11-06T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-06.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/story-11-06.jpg",
+      "enviado_em": "2026-11-04T22:43:26.362263-03:00"
+    },
+    {
+      "id": "2026-11-07-feed",
+      "tipo": "feed",
+      "quando": "2026-11-07T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-07.jpg",
+      "legenda": "Vai passar babosa no couro cabeludo pela primeira vez? 🌿\n\nPele sensível pode ter irritação com ela.\nAntes, passe um pouco do gel transparente numa área pequena da pele e espere.\nSe ficar tudo bem, siga. Se irritar, pare por aí.\nE use só o gel de dentro da folha: a seiva amarela perto da casca pode irritar a pele.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #cuidadoscapilares #dicasnaturais",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/feed-11-07.jpg",
+      "enviado_em": "2026-11-04T22:43:26.368268-03:00"
+    },
+    {
+      "id": "2026-11-07-story",
+      "tipo": "story",
+      "quando": "2026-11-07T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-07.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/story-11-07.jpg",
+      "enviado_em": "2026-11-04T22:43:26.373273-03:00"
+    }
+  ]
+}
