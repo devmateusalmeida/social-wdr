@@ -96,11 +96,13 @@
       "quando": "2026-11-07T12:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-07.jpg",
       "legenda": "",
-      "situacao": "esperando aprovação",
+      "situacao": "aguardando",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/story-11-07.jpg",
       "enviado_em": "2026-11-04T22:43:40.714192-03:00",
-      "mensagem": 54
+      "mensagem": 54,
+      "aprovado_por": "Mateus",
+      "aprovado_em": "2026-11-05T12:05:06.241643-03:00"
     }
   ]
 }
