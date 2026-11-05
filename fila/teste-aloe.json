@@ -26,7 +26,11 @@
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/story-11-05.jpg",
       "enviado_em": "2026-11-04T22:43:40.714192-03:00",
-      "mensagem": 48
+      "mensagem": 48,
+      "lembretes": {
+        "24h": 0,
+        "2h": 55
+      }
     },
     {
       "id": "2026-11-06-feed",
