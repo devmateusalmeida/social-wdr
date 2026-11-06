@@ -48,7 +48,7 @@
       "quando": "2026-11-06T12:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-06.jpg",
       "legenda": "Já se perguntou o que tem dentro daquele gel? 🌿\n\nAté 99% dele é água.\nO resto são cerca de 200 compostos, como polissacarídeos, aminoácidos, vitaminas e minerais.\nNa cosmética, a babosa é usada sobretudo pela ação hidratante, e aparece em xampu, condicionador e tônico capilar.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #cuidadoscapilares #hidratacaocapilar",
-      "situacao": "publicando",
+      "situacao": "publicado",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/feed-11-06.jpg",
       "enviado_em": "2026-11-04T22:43:40.714192-03:00",
@@ -58,7 +58,9 @@
       },
       "aprovado_por": "Mateus",
       "aprovado_em": "2026-11-05T12:03:40.146615-03:00",
-      "caixa": "18084609860534742"
+      "caixa": "18084609860534742",
+      "instagram_id": "18118356296100431",
+      "publicado_em": "2026-11-06T12:00:33.858490-03:00"
     },
     {
       "id": "2026-11-06-story",
