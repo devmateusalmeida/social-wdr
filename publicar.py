@@ -12,7 +12,18 @@ Cada item anda assim, salvando no GitHub a cada passo:
 
 Se uma volta cai no meio, o item fica em "publicando" e a próxima pergunta
 à Meta se a caixa já saiu (PUBLISHED). Por isso nunca posta duas vezes.
-Falha passageira tenta de novo na volta seguinte; na 3ª vira "erro". Mais
+
+Carrossel (item 8.4, tipo "carrossel", lista "imagens" na ordem) tem um
+passo a mais antes da caixa: uma caixa por slide (is_carousel_item), com os
+números salvos na fila ("slides preparados"). Com todos prontos, a caixa do
+álbum (media_type CAROUSEL, children e a legenda) é a "caixa" de sempre:
+salva antes de soltar, e a trava contra post duplicado é a mesma. Slide sozinho
+nunca vai pro ar. Slide que deu erro ou venceu (24 h) é refeito do zero.
+Antes de pedir a caixa, confere se a arte está no Pages: com 404 (build
+atrasado ou falho) espera a volta seguinte sem gastar tentativa e avisa se
+continuar. Um cliente com problema (fila quebrada, horário sem fuso) avisa e
+fica sem publicar naquela volta; os outros seguem.
+Falha passageira tenta de novo na volta seguinte; na 6ª vira "erro". Mais
 de 2 h atrasado vira "atrasado" e não sai sem alguém decidir. Erro, atraso
 e qualquer outro problema viram aviso no Telegram (avisos.py), na conversa
 privada de quem cuida do robô, sem repetir a cada volta. Quando sai aviso a
@@ -40,6 +51,7 @@ menor, e a conta usa o relógio desta volta: em 01/11/2026, no fim do horário
 de verão dos EUA, o GitHub informou por 1 h o horário das voltas com 1 h a
 mais e o robô avisou um buraco que não existiu.
 """
+import http.client
 import json
 import os
 import subprocess
@@ -63,7 +75,7 @@ except Exception as e:  # erro nos avisos nunca pode parar a publicação
 RAIZ = Path(__file__).resolve().parent
 API = "https://graph.instagram.com"
 BRASILIA = timezone(timedelta(hours=-3))
-TENTATIVAS = 3
+TENTATIVAS = 6  # com volta a cada 5 min, uns 30 min de insistência (eram 3 voltas de 15 min, uns 45 min)
 TOKENS = RAIZ / "tokens.json"
 RENOVAR_COM = timedelta(days=30)
 PARADO = timedelta(minutes=30)
@@ -89,6 +101,23 @@ def pedir(url, dados=None, **params):
         raise ErroMeta(f"{e.code}: {erro.get('message', e.reason)}") from None
     except urllib.error.URLError as e:
         raise ErroMeta(f"sem conexão com a Meta: {e.reason}") from None
+    except (OSError, http.client.HTTPException, ValueError) as e:
+        # demora de mais de 60 s, conexão caída no meio ou resposta que não é JSON: o urllib deixa passar
+        # cru e, antes, isso derrubava a volta inteira sem contar tentativa nem avisar no Telegram
+        raise ErroMeta(f"a Meta não respondeu direito ({type(e).__name__})") from None
+
+
+def arte_sumiu(url):
+    """True só quando o Pages responde 404 pra arte (o build com ela ainda não saiu ou falhou). Qualquer
+    outra resposta, ou falha de conexão, segue como antes e quem decide é a Meta"""
+    try:
+        urllib.request.urlopen(urllib.request.Request(url, method="HEAD", headers={"User-Agent": "publicador-wdr"}),
+                               timeout=20).close()
+    except urllib.error.HTTPError as e:
+        return e.code == 404
+    except Exception:
+        pass
+    return False
 
 
 def git(*args):
@@ -248,14 +277,34 @@ def preparar(item, token):
 
 def esperar(caixa, token):
     """True quando a Meta terminou de processar a imagem"""
+    return esperar_todas([caixa], token)
+
+
+def esperar_todas(caixas, token):
+    """True quando a Meta terminou de processar todas (os slides do carrossel ou uma caixa só)"""
+    faltam = list(caixas)
     for _ in range(12):
-        status = situacao_caixa(caixa, token)
-        if status == "FINISHED":
+        for caixa in list(faltam):
+            status = situacao_caixa(caixa, token)
+            if status == "FINISHED":
+                faltam.remove(caixa)
+            elif status in ("ERROR", "EXPIRED"):
+                raise ErroMeta(f"a Meta não processou a imagem ({status})")
+        if not faltam:
             return True
-        if status in ("ERROR", "EXPIRED"):
-            raise ErroMeta(f"a Meta não processou a imagem ({status})")
         time.sleep(5)
     return False
+
+
+def preparar_slides(item, token):
+    """Uma caixa por slide, na ordem. Sem legenda: a legenda vai no álbum"""
+    return [pedir(f"{API}/me/media", dados={"image_url": imagem, "is_carousel_item": "true",
+                                            "access_token": token})["id"] for imagem in item["imagens"]]
+
+
+def preparar_album(item, slides, token):
+    return pedir(f"{API}/me/media", dados={"media_type": "CAROUSEL", "children": ",".join(slides),
+                                           "caption": item["legenda"], "access_token": token})["id"]
 
 
 def processar(cliente, item, token, agora):
@@ -280,13 +329,34 @@ def processar(cliente, item, token, agora):
                 return None
             if status in ("ERROR", "EXPIRED"):
                 caixa = None
+                item["caixas_dos_slides"] = None  # álbum vencido: os slides também, refaz tudo
         if not caixa:
             atraso = agora - datetime.fromisoformat(item["quando"])
             if atraso > ATRASO_MAXIMO:
                 marcar({"situacao": "atrasado"}, "atrasado, não publicado")
                 return aviso(f"atrasado|{nome}", f"{nome}: {atraso.total_seconds() / 3600:.1f} h atrasado, "
                                                  f"ficou sem publicar pra alguém decidir")
-            caixa = preparar(item, token)
+            sumiu = next((u for u in item.get("imagens") or [item.get("imagem")] if u and arte_sumiu(u)), None)
+            if sumiu:
+                print(f"{nome}: a arte ainda não está no Pages ({sumiu.rsplit('/', 1)[-1]}), tento na próxima volta")
+                return aviso(f"pages|{nome}", f"{nome}: a arte {sumiu.rsplit('/', 1)[-1]} não está no Pages, então a "
+                                              f"Meta não teria de onde baixar. Tento a cada volta sem gastar tentativa. "
+                                              f"Se continuar: GitHub > Actions > pages build and deployment > Re-run "
+                                              f"do mais recente", "passageiro")
+            if item["tipo"] == "carrossel":
+                slides = item.get("caixas_dos_slides")
+                if slides and any(situacao_caixa(s, token) in ("ERROR", "EXPIRED") for s in slides):
+                    slides = None
+                if not slides:
+                    slides = preparar_slides(item, token)
+                    if not marcar({"caixas_dos_slides": slides}, "slides preparados"):
+                        return None  # sem os números salvos não segue; os slides somem sozinhos em 24 h
+                if not esperar_todas(slides, token):
+                    print(f"{nome}: a Meta ainda está processando os slides, segue na próxima volta")
+                    return None
+                caixa = preparar_album(item, slides, token)
+            else:
+                caixa = preparar(item, token)
             if not marcar({"caixa": caixa}, "caixa preparada"):
                 return None  # sem o número salvo não solta; a caixa some sozinha em 24 h
         if not esperar(caixa, token):
@@ -305,6 +375,44 @@ def processar(cliente, item, token, agora):
         if final:
             return aviso(f"erro|{nome}", f"{nome}: desistiu depois de {TENTATIVAS} tentativas. Último erro: {e}")
     return None
+
+
+def conferir_fila(itens):
+    """Erro claro pra fila mexida à mão: horário sem fuso (sem o -03:00) dava erro de comparação a cada volta"""
+    for i in itens:
+        if datetime.fromisoformat(i["quando"]).tzinfo is None:
+            raise ValueError(f"{i['id']} com horário sem fuso ({i['quando']}): falta o -03:00 no fim")
+
+
+def cuidar_da_fila(cliente, arq, token, agora):
+    """Lembretes, prazo e publicação de um cliente. Devolve avisos"""
+    avisos = []
+    conferir_fila(json.loads(arq.read_text(encoding="utf-8"))["itens"])
+    try:
+        avisos += aprovacao.cuidar_dos_horarios(cliente, salvar, agora)
+    except Exception as e:  # lembrete quebrado nunca pode parar a publicação
+        avisos.append(aviso(f"prazo|{cliente}", f"{cliente}: erro nos lembretes e no prazo de aprovação "
+                                                f"({type(e).__name__}: {e})", "problema"))
+    itens = json.loads(arq.read_text(encoding="utf-8"))["itens"]  # lido depois: o prazo pode ter mudado a fila
+    vencidos = [i for i in itens if i["situacao"] in ("aguardando", "publicando")
+                and datetime.fromisoformat(i["quando"]) <= agora]
+    contagem = {s: sum(1 for i in itens if i["situacao"] == s) for s in {i["situacao"] for i in itens}}
+    print(f"{cliente}: token {'ok' if token else 'FALTANDO'}, {len(vencidos)} pra publicar agora, {contagem}")
+    # avisa assim que tiver post na fila, e não só na hora de publicar (cliente novo sem o segredo ou sem a linha
+    # no publicar.yml só aparecia quando o primeiro post já devia estar saindo)
+    pendentes = [i for i in itens if i["situacao"] in (aprovacao.ESPERANDO, "aguardando", "publicando")]
+    if pendentes and not token:
+        primeiro = datetime.fromisoformat(min(i["quando"] for i in pendentes))
+        avisos.append(aviso(f"segredo|{cliente}", f"{cliente}: falta o segredo {segredo(cliente)} no GitHub (ou a "
+                                                   f"linha dele no publicar.yml). Primeiro post na fila: "
+                                                   f"{primeiro:%d/%m %H:%M}. Nada desse cliente sai até colocar",
+                            "problema"))
+        return avisos
+    for item in vencidos:
+        problema = processar(cliente, item, token, agora)
+        if problema:
+            avisos.append(problema)
+    return avisos
 
 
 def main():
@@ -330,27 +438,16 @@ def main():
                             "Aviso de teste pedido no Run workflow. Se chegou aqui, os avisos estão funcionando."))
     for arq in sorted((RAIZ / "fila").glob("*.json")):
         cliente = arq.stem
-        try:
-            avisos += aprovacao.cuidar_dos_horarios(cliente, salvar, agora)
-        except Exception as e:  # lembrete quebrado nunca pode parar a publicação
-            avisos.append(aviso(f"prazo|{cliente}", f"{cliente}: erro nos lembretes e no prazo de aprovação "
-                                                    f"({type(e).__name__}: {e})", "problema"))
-        itens = json.loads(arq.read_text(encoding="utf-8"))["itens"]  # lido depois: o prazo pode ter mudado a fila
         token = os.environ.get(segredo(cliente))
         if token:
-            tokens[cliente] = token
-        vencidos = [i for i in itens if i["situacao"] in ("aguardando", "publicando")
-                    and datetime.fromisoformat(i["quando"]) <= agora]
-        contagem = {s: sum(1 for i in itens if i["situacao"] == s) for s in {i["situacao"] for i in itens}}
-        print(f"{cliente}: token {'ok' if token else 'FALTANDO'}, {len(vencidos)} pra publicar agora, {contagem}")
-        if vencidos and not token:
-            avisos.append(aviso(f"segredo|{cliente}", f"{cliente}: falta o segredo {segredo(cliente)} no GitHub, "
-                                                       f"nada desse cliente sai até colocar", "problema"))
-            continue
-        for item in vencidos:
-            problema = processar(cliente, item, token, agora)
-            if problema:
-                avisos.append(problema)
+            tokens[cliente] = token  # antes de tudo: fila com problema não pode atrasar a renovação do token
+        try:
+            avisos += cuidar_da_fila(cliente, arq, token, agora)
+        except Exception as e:  # um cliente com problema não para os outros
+            print(f"{cliente}: ERRO ({type(e).__name__}: {e}), sigo com os outros clientes")
+            avisos.append(aviso(f"fila|{cliente}", f"{cliente}: erro na fila, nada desse cliente sai enquanto não "
+                                                   f"resolver; os outros clientes seguem ({type(e).__name__}: {e})",
+                                "problema"))
 
     avisos += cuidar_dos_tokens(tokens, agora)
     if avisos:

@@ -6,7 +6,9 @@ pessoa no Telegram: nome). Os números não são segredo; sem o token ninguém
 faz nada com eles.
 
 Cada horário vai pro grupo como as artes (feed e story juntos) e uma mensagem
-com a legenda e os botões Aprovar e Ajustar. O post fica "esperando
+com a legenda e os botões Aprovar e Ajustar. No carrossel vão os slides na
+ordem e o story, no mesmo álbum (até 10 imagens por álbum no Telegram; passou
+disso, vai em mais de um), e a mensagem com os botões logo abaixo. O post fica "esperando
 aprovação" na fila e o publicador não mexe nele até alguém aprovar.
 
 A cada volta o publicador lê os cliques (o Telegram guarda 24 h) antes de
@@ -197,8 +199,8 @@ def o_que_mudou(itens):
 
 def texto_do_dia(itens):
     refeito = f" (versão {versao(itens)}, {o_que_mudou(itens)})" if versao(itens) > 1 else ""
-    feed = next((i for i in itens if i["tipo"] == "feed"), None)
-    legenda = f"Legenda do feed:\n\n{feed['legenda']}" if feed else "(story sai sem legenda)"
+    feed = next((i for i in itens if i["tipo"] in ("feed", "carrossel")), None)
+    legenda = f"Legenda do {feed['tipo']}:\n\n{feed['legenda']}" if feed else "(story sai sem legenda)"
     return (f"{nome_do_horario(itens).capitalize()}{refeito}\n\n{legenda}\n\n"
             "Aprovar: sai no horário. Ajustar: segura o post e pede a mudança.\n"
             "Depois do clique, a confirmação aparece aqui em até 1 min.")
@@ -211,15 +213,26 @@ def botoes(cliente, itens):
                                  {"text": "Ajustar", "callback_data": f"j|{cliente}|{horario}|{v}"}]]}
 
 
+ALBUM_MAXIMO = 10  # imagens por álbum no Telegram
+
+
+def artes_em_ordem(itens, artes):
+    """Arquivos do horário na ordem da fila. artes: id do item -> arquivo (ou lista, no carrossel)"""
+    return [a for i in itens for a in (artes[i["id"]] if isinstance(artes[i["id"]], list) else [artes[i["id"]]])]
+
+
 def enviar_dia(cliente, itens, artes):
-    """Manda as artes de um dia e a mensagem com os botões. artes: id do item -> arquivo no PC.
-    Devolve o número da mensagem dos botões"""
+    """Manda as artes de um dia e a mensagem com os botões. artes: id do item -> arquivo no PC
+    (no carrossel, a lista dos slides na ordem). Devolve o número da mensagem dos botões"""
     grupo = config(cliente)["grupo"]
-    if len(itens) == 1:
-        pedir("sendPhoto", {"foto": artes[itens[0]["id"]]}, chat_id=grupo, photo="attach://foto")
-    else:
-        pedir("sendMediaGroup", {f"foto{n}": artes[i["id"]] for n, i in enumerate(itens)}, chat_id=grupo,
-              media=[{"type": "photo", "media": f"attach://foto{n}"} for n in range(len(itens))])
+    arquivos = artes_em_ordem(itens, artes)
+    for inicio in range(0, len(arquivos), ALBUM_MAXIMO):
+        parte = arquivos[inicio:inicio + ALBUM_MAXIMO]
+        if len(parte) == 1:  # álbum precisa de 2 ou mais
+            pedir("sendPhoto", {"foto": parte[0]}, chat_id=grupo, photo="attach://foto")
+        else:
+            pedir("sendMediaGroup", {f"foto{n}": a for n, a in enumerate(parte)}, chat_id=grupo,
+                  media=[{"type": "photo", "media": f"attach://foto{n}"} for n in range(len(parte))])
     return pedir("sendMessage", chat_id=grupo, text=texto_do_dia(itens), reply_markup=botoes(cliente, itens))["message_id"]
 
 
