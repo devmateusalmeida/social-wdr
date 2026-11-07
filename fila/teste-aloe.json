@@ -137,7 +137,8 @@
         "clientes/teste-aloe/lotes/semana-2026-11-02/carrossel-11-08-4.jpg",
         "clientes/teste-aloe/lotes/semana-2026-11-02/carrossel-11-08-5.jpg"
       ],
-      "enviado_em": "2026-11-07T13:54:31.318004-03:00"
+      "enviado_em": "2026-11-07T13:55:01.178361-03:00",
+      "mensagem": 68
     },
     {
       "id": "2026-11-08-story",
@@ -148,7 +149,8 @@
       "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-02/story-11-08.jpg",
-      "enviado_em": "2026-11-07T13:54:31.321007-03:00"
+      "enviado_em": "2026-11-07T13:55:01.178361-03:00",
+      "mensagem": 68
     }
   ]
 }
