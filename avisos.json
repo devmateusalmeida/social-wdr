@@ -1,11 +1,5 @@
 {
   "abertos": {
-    "parado|2026-11-01T04:55": {
-      "tipo": "evento",
-      "visto": "2026-11-01T05:00:18.649049-03:00",
-      "texto": "O robô ficou 65 min sem rodar (de 01/11 04:55 a 01/11 06:00). O despertador do cron-job.org deve ter parado: conferir o histórico do trabalho em console.cron-job.org e se a chave despertador-social-wdr ainda vale.",
-      "avisado": "2026-11-01T05:00:18.649049-03:00"
-    },
     "sem-aprovacao|teste-livro|2026-11-03T18:30|v1": {
       "tipo": "evento",
       "visto": "2026-11-03T16:30:17.553594-03:00",
