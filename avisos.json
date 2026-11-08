@@ -1,11 +1,5 @@
 {
   "abertos": {
-    "teste-aviso|41266583671": {
-      "tipo": "evento",
-      "visto": "2026-10-31T23:47:09.881486-03:00",
-      "texto": "Aviso de teste pedido no Run workflow. Se chegou aqui, os avisos estão funcionando.",
-      "avisado": "2026-10-31T23:47:09.881486-03:00"
-    },
     "parado|2026-11-01T04:55": {
       "tipo": "evento",
       "visto": "2026-11-01T05:00:18.649049-03:00",
