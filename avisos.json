@@ -1,11 +1,5 @@
 {
   "abertos": {
-    "passou|teste-livro|2026-11-03T18:30|v1": {
-      "tipo": "evento",
-      "visto": "2026-11-03T20:30:15.131239-03:00",
-      "texto": "teste-livro: o feed e story de terça, 03/11, às 18h30 não saiu, passaram 2 h do horário sem aprovação. Pra remarcar: python sistema/refazer.py teste-livro 2026-11-03T18:30 --para AAAA-MM-DDTHH:MM",
-      "avisado": "2026-11-03T20:30:15.131239-03:00"
-    },
     "sem-aprovacao|teste-livro|2026-11-04T22:00|v1": {
       "tipo": "evento",
       "visto": "2026-11-04T20:00:26.476075-03:00",
