@@ -11,6 +11,11 @@
       "visto": "2026-11-05T10:00:21.342487-03:00",
       "texto": "teste-aloe: o feed e story de quinta, 05/11, às 12h está sem aprovação. Chamar o cliente no grupo. Sem aprovação até as 14h de 05/11, não sai.",
       "avisado": "2026-11-05T10:00:21.342487-03:00"
+    },
+    "telegram-info": {
+      "tipo": "passageiro",
+      "visto": "2026-11-11T13:10:10.924164-03:00",
+      "texto": "Telegram: não consegui perguntar se a entrega na caixa está ok (sem conexão com o Telegram: <urlopen error [Errno 104] Connection reset by peer>)"
     }
   }
 }
