@@ -246,7 +246,8 @@
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-12.jpg",
       "legenda": "",
       "situacao": "publicando",
-      "tentativas": 0
+      "tentativas": 0,
+      "caixa": "18236536129318835"
     },
     {
       "id": "2026-11-14-feed",
