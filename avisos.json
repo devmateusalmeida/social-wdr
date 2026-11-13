@@ -1,9 +1,3 @@
 {
-  "abertos": {
-    "telegram-info": {
-      "tipo": "passageiro",
-      "visto": "2026-11-13T09:10:10.958239-03:00",
-      "texto": "Telegram: não consegui perguntar se a entrega na caixa está ok (sem conexão com o Telegram: <urlopen error [Errno 104] Connection reset by peer>)"
-    }
-  }
+  "abertos": {}
 }
