@@ -269,9 +269,11 @@
       "quando": "2026-11-14T19:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-livro/story-2026-11-14.jpg",
       "legenda": "",
-      "situacao": "publicando",
+      "situacao": "publicado",
       "tentativas": 0,
-      "caixa": "18237031123318835"
+      "caixa": "18237031123318835",
+      "instagram_id": "18117170684174653",
+      "publicado_em": "2026-11-14T19:00:40.435358-03:00"
     }
   ]
 }
