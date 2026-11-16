@@ -5,6 +5,11 @@
       "visto": "2026-11-16T10:03:02.156230-03:00",
       "texto": "O robô ficou 37 min sem rodar (de 16/11 09:25 a 16/11 10:03). O despertador do cron-job.org deve ter parado: conferir o histórico do trabalho em console.cron-job.org e se a chave despertador-social-wdr ainda vale.",
       "avisado": "2026-11-16T10:03:02.156230-03:00"
+    },
+    "telegram-info": {
+      "tipo": "passageiro",
+      "visto": "2026-11-16T12:20:24.104977-03:00",
+      "texto": "Telegram: não consegui perguntar se a entrega na caixa está ok (sem conexão com o Telegram: <urlopen error [Errno 104] Connection reset by peer>)"
     }
   }
 }
