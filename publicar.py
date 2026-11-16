@@ -49,7 +49,8 @@ foi há mais de 30 min, o despertador falhou e esta volta veio do agendamento
 do GitHub (que roda quando dá); o robô avisa. A volta anterior é a de número
 menor, e a conta usa o relógio desta volta: em 01/11/2026, no fim do horário
 de verão dos EUA, o GitHub informou por 1 h o horário das voltas com 1 h a
-mais e o robô avisou um buraco que não existiu.
+mais e o robô avisou um buraco que não existiu. Se já existe volta mais nova
+que esta, não avisa: esta só ficou presa na fila do GitHub (16/11/2026, 33 min).
 """
 import http.client
 import json
@@ -245,6 +246,10 @@ def robo_parado(agora):
         print(f"Não consegui ver a volta anterior ({type(e).__name__}), sigo sem conferir")
         return []
     atual = int(os.environ.get("GITHUB_RUN_ID") or 0)
+    # volta mais nova que esta já existe: o despertador está rodando, esta só ficou presa na fila do GitHub
+    # (16/11/2026: a das 09:30 esperou 33 min, as seguintes saíram na hora e ela avisou um buraco que não existiu)
+    if atual and any(int(v["id"]) > atual for v in voltas):
+        return []
     antes = [v for v in voltas if not atual or int(v["id"]) < atual]
     if not antes:
         return []
