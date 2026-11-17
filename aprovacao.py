@@ -56,6 +56,7 @@ AJUSTE = "ajuste"
 PASSOU = "passou do horário"
 ATRASO_MAXIMO = timedelta(hours=2)  # aprovação vale até 2 h depois do horário; o publicar.py usa o mesmo
 CHEGOU_HA_POUCO = timedelta(hours=3)  # post que chegou no grupo há menos que isso não ganha lembrete
+DEMONSTRACAO = 0  # versão do botão de post de demonstração (fora da fila); a de verdade começa em 1
 DIAS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
 
 
@@ -340,6 +341,8 @@ def tratar(u, salvar, agora, avisos):
     partes = clique.get("data", "").split("|")
     if len(partes) == 2 and partes[0] == "t":
         return clique_de_teste(partes[1], msg, agora, responder, avisos)
+    if len(partes) == 4 and partes[0] == "p":
+        return clique_do_plano(partes[1], partes[2], partes[3], clique, msg, responder)
     try:
         if len(partes) == 3:
             partes.append("1")  # mensagem de antes da versão no botão
@@ -363,6 +366,8 @@ def tratar(u, salvar, agora, avisos):
                              f"de aprovadores deste cliente, então o clique não valeu. Pra incluir, o William põe "
                              f"o número {clique['from']['id']} no aprovacao.json.", msg.get("message_id"), avisos)
         return True
+    if versao_botao == DEMONSTRACAO:
+        return clique_de_demonstracao(cfg["grupo"], cliente, horario, botao, nome, msg, responder)
 
     if acao == "a":
         de, para = (ESPERANDO,), {"situacao": "aguardando", "aprovado_por": nome, "aprovado_em": agora.isoformat()}
@@ -498,6 +503,58 @@ def expirar(cliente, grupo, horario, itens, salvar, agora):
                         f"{cliente}: o {nome_do_horario(itens)} não saiu, passaram 2 h do horário {motivo}. "
                         f"Pra remarcar: python sistema/refazer.py {cliente} {horario} --para AAAA-MM-DDTHH:MM"))
     return avisos
+
+
+def clique_de_demonstracao(grupo, cliente, horario, botao, nome, msg, responder):
+    """Post de demonstração (botão com versão 0, sistema/demo_mes.py): fica igual ao de verdade no grupo, mas está
+    fora da fila e não sai"""
+    print(f"Telegram: {botao} em {cliente} {horario}: demonstração, nada gravado")
+    responder("Recebido")
+    if botao == "Aprovar":
+        situacao = f"APROVADO por {nome}. Sai no horário."
+    else:
+        situacao = (f"AJUSTE pedido por {nome}. Escreva aqui no grupo o que mudar; o William refaz "
+                    f"e manda de novo pra aprovar.")
+    base = msg.get("text", "").rsplit("\n\n", 1)[0]
+    editar(grupo, msg.get("message_id"), f"{base}\n\n{situacao}\n(Demonstração: este post não sai pelo robô.)")
+    return True
+
+
+def clique_do_plano(cliente, escolha, periodo, clique, msg, responder):
+    """Botões do PDF do mês: Aprovar tudo ou Acompanhar. Por enquanto só mostra a escolha no grupo e não grava
+    nada; o modo por cliente ainda vai ser construído (andamento, "Ideia geral" de 16/11)"""
+    try:
+        cfg = config(cliente)
+    except ErroTelegram:
+        responder()
+        return True
+    if msg.get("chat", {}).get("id") != cfg["grupo"] or escolha not in ("tudo", "acompanhar"):
+        print(f"Telegram: plano de {cliente} de outro grupo ou escolha desconhecida, ignorado")
+        responder()
+        return True
+    nome = cfg["aprovadores"].get(str(clique["from"]["id"]))
+    if not nome:
+        responder("Só quem está na lista de aprovadores pode clicar aqui.")
+        return True
+    print(f"Telegram: plano {periodo} de {cliente}: {escolha} por {nome}, nada gravado")
+    responder("Recebido")
+    if escolha == "tudo":
+        situacao = (f"TUDO APROVADO por {nome}. Os posts saem sozinhos nos dias e horários do calendário. "
+                    f"Toda quinta os da semana seguinte chegam aqui pra você conferir.")
+    else:
+        situacao = (f"ACOMPANHAR escolhido por {nome}. Toda quinta os posts da semana seguinte chegam aqui, "
+                    f"um por um, com Aprovar e Ajustar.")
+    campo = "caption" if "caption" in msg else "text"
+    base = msg.get(campo, "").rsplit("\n\n", 1)[0]
+    try:
+        if campo == "caption":
+            pedir("editMessageCaption", chat_id=cfg["grupo"], message_id=msg.get("message_id"),
+                  caption=f"{base}\n\n{situacao}", reply_markup={"inline_keyboard": []})
+        else:
+            editar(cfg["grupo"], msg.get("message_id"), f"{base}\n\n{situacao}")
+    except ErroTelegram as e:
+        print(f"Telegram: plano de {cliente}: não consegui mudar a mensagem ({e})")
+    return True
 
 
 def clique_de_teste(cliente, msg, agora, responder, avisos):
