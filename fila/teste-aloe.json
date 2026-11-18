@@ -173,29 +173,39 @@
       "id": "2026-11-19-feed",
       "tipo": "feed",
       "quando": "2026-11-18T15:00:00-03:00",
-      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-19.jpg",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-19-v2.jpg",
       "legenda": "Seu cabelo também anda mais seco e áspero com esse calor? 🌿\n\nSol, piscina e mar deixam o fio seco, e as pontas são as primeiras a sentir.\n\nO jeito mais simples: antes do banho, passe o gel transparente da babosa nas pontas e deixe uns minutos. Depois lave como sempre.\n\nNa cosmética, a babosa é usada sobretudo pela ação hidratante. É um cuidado fácil pra temporada de calor.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabeloressecado #cuidadocapilar #verao",
-      "situacao": "ajuste",
+      "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/feed-11-19.jpg",
-      "enviado_em": "2026-11-18T13:18:31.523017-03:00",
-      "mensagem": 129,
+      "enviado_em": "2026-11-18T13:28:38.409345-03:00",
       "ajuste_pedido_por": "William",
-      "ajuste_pedido_em": "2026-11-18T13:22:40.291198-03:00"
+      "ajuste_pedido_em": "2026-11-18T13:22:40.291198-03:00",
+      "versao": 2,
+      "motivo_da_versao": [
+        "ajuste",
+        "peça nova"
+      ],
+      "refeito_em": "2026-11-18T13:28:38.409345-03:00"
     },
     {
       "id": "2026-11-19-story",
       "tipo": "story",
       "quando": "2026-11-18T15:00:00-03:00",
-      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-19.jpg",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-19-v2.jpg",
       "legenda": "",
-      "situacao": "ajuste",
+      "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/story-11-19.jpg",
-      "enviado_em": "2026-11-18T13:18:31.523017-03:00",
-      "mensagem": 129,
+      "enviado_em": "2026-11-18T13:28:38.409345-03:00",
       "ajuste_pedido_por": "William",
-      "ajuste_pedido_em": "2026-11-18T13:22:40.291198-03:00"
+      "ajuste_pedido_em": "2026-11-18T13:22:40.291198-03:00",
+      "versao": 2,
+      "motivo_da_versao": [
+        "ajuste",
+        "peça nova"
+      ],
+      "refeito_em": "2026-11-18T13:28:38.409345-03:00"
     },
     {
       "id": "2026-11-20-feed",
