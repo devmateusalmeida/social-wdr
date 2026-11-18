@@ -72,7 +72,8 @@
   body.gravando #voltar { visibility: hidden; }
   .lista { flex: 1; overflow-y: auto; scroll-snap-type: y mandatory; }
   .post {
-    scroll-snap-align: start; min-height: 100%;
+    /* always: um deslize passa um post só, mesmo com o dedo rápido (pedido do Mateus, 18/11) */
+    scroll-snap-align: start; scroll-snap-stop: always; min-height: 100%;
     padding: 14px 16px 150px; max-width: 520px; margin: 0 auto;
   }
   .post h2 { margin: 0 0 10px; font-size: 18px; }
