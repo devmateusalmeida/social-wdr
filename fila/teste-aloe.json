@@ -206,7 +206,7 @@
       "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/feed-11-22.jpg",
-      "enviado_em": "2026-11-18T12:36:06.396103-03:00",
+      "enviado_em": "2026-11-18T12:36:32.510557-03:00",
       "ajuste_pedido_por": "Mateus",
       "ajuste_pedido_em": "2026-11-18T12:31:06.372797-03:00",
       "versao": 3,
@@ -214,7 +214,8 @@
         "ajuste",
         "peça nova"
       ],
-      "refeito_em": "2026-11-18T12:36:06.396103-03:00"
+      "refeito_em": "2026-11-18T12:36:06.396103-03:00",
+      "mensagem": 124
     },
     {
       "id": "2026-11-22-story",
@@ -225,7 +226,7 @@
       "situacao": "esperando aprovação",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/story-11-22.jpg",
-      "enviado_em": "2026-11-18T12:36:06.396103-03:00",
+      "enviado_em": "2026-11-18T12:36:32.510557-03:00",
       "ajuste_pedido_por": "Mateus",
       "ajuste_pedido_em": "2026-11-18T12:31:06.372797-03:00",
       "versao": 3,
@@ -233,7 +234,8 @@
         "ajuste",
         "peça nova"
       ],
-      "refeito_em": "2026-11-18T12:36:06.396103-03:00"
+      "refeito_em": "2026-11-18T12:36:06.396103-03:00",
+      "mensagem": 124
     }
   ]
 }
