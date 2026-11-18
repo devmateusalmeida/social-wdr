@@ -17,6 +17,12 @@
       "visto": "2026-11-18T12:40:15.199425-03:00",
       "texto": "teste-aloe: Mateus pediu ajuste no post de domingo, 22/11: .",
       "avisado": "2026-11-18T12:40:15.199425-03:00"
+    },
+    "ajuste|teste-aloe|133": {
+      "tipo": "evento",
+      "visto": "2026-11-18T13:25:17.690423-03:00",
+      "texto": "teste-aloe: William pediu ajuste no post de quarta, 18/11: quero o fundo amarelo",
+      "avisado": "2026-11-18T13:25:17.690423-03:00"
     }
   }
 }
