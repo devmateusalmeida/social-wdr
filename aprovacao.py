@@ -45,6 +45,7 @@ a caixa no lugar do getUpdates. Sem "_caixa", volta ao jeito antigo (VPS).
 """
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -245,13 +246,27 @@ def mensagem_original(itens):
     return next((i["mensagem"] for i in itens if i.get("mensagem")), None)
 
 
+TENTATIVAS_EDITAR = 3
+ESPERA_EDITAR = 2  # segundos entre as tentativas
+
+
 def editar(grupo, numero, texto):
-    """Troca o texto de uma mensagem do grupo e tira os botões. Devolve o erro, ou None"""
-    try:
-        pedir("editMessageText", chat_id=grupo, message_id=numero, text=texto, reply_markup={"inline_keyboard": []})
-    except ErroTelegram as e:
-        return e
-    return None
+    """Troca o texto de uma mensagem do grupo e tira os botões. Devolve o erro, ou None.
+    Tenta de novo quando a falha é de conexão ou do Telegram (18/11: uma troca falhou no robô e funcionou igual
+    logo depois, e o botão ficou ativo). Recusa de verdade (mensagem sumiu, texto igual) não repete"""
+    for tentativa in range(TENTATIVAS_EDITAR):
+        try:
+            pedir("editMessageText", chat_id=grupo, message_id=numero, text=texto,
+                  reply_markup={"inline_keyboard": []})
+            return None
+        except ErroTelegram as e:
+            erro = e
+            print(f"Telegram: troca da mensagem {numero} falhou ({e}), tentativa {tentativa + 1}")
+            if "not modified" in str(e) or "not found" in str(e) or "can't be edited" in str(e):
+                return erro
+            if tentativa + 1 < TENTATIVAS_EDITAR:
+                time.sleep(ESPERA_EDITAR)
+    return erro
 
 
 def fechar(grupo, itens, situacao, exceto=None):
@@ -373,7 +388,8 @@ def tratar(u, salvar, agora, avisos):
                              f"o número {clique['from']['id']} no aprovacao.json.", msg.get("message_id"), avisos)
         return True
     if versao_botao == DEMONSTRACAO:
-        return clique_de_demonstracao(cfg["grupo"], cliente, horario, botao, nome, msg, responder, clique["from"])
+        return clique_de_demonstracao(cfg["grupo"], cliente, horario, botao, nome, msg, responder, clique["from"],
+                                      avisos)
 
     if acao == "a":
         de, para = (ESPERANDO,), {"situacao": "aguardando", "aprovado_por": nome, "aprovado_em": agora.isoformat()}
@@ -515,7 +531,7 @@ def expirar(cliente, grupo, horario, itens, salvar, agora):
 DEMO_DECIDIDOS = set()  # (grupo, mensagem) de demonstração já decidida nesta volta
 
 
-def clique_de_demonstracao(grupo, cliente, horario, botao, nome, msg, responder, pessoa):
+def clique_de_demonstracao(grupo, cliente, horario, botao, nome, msg, responder, pessoa, avisos):
     """Post de demonstração (botão com versão 0, sistema/demo_mes.py): fica igual ao de verdade no grupo, mas está
     fora da fila e não sai. Vale o primeiro clique, como no de verdade (lá a fila guarda a decisão): quem clica de
     novo antes da confirmação aparecer não troca o que já foi decidido"""
@@ -533,7 +549,12 @@ def clique_de_demonstracao(grupo, cliente, horario, botao, nome, msg, responder,
     else:
         situacao = TEXTO_AJUSTE.format(nome=nome)
     base = msg.get("text", "").rsplit("\n\n", 1)[0]
-    editar(grupo, msg.get("message_id"), f"{base}\n\n{situacao}\n(Demonstração: este post não sai pelo robô.)")
+    erro = editar(grupo, msg.get("message_id"), f"{base}\n\n{situacao}\n(Demonstração: este post não sai pelo robô.)")
+    if erro:
+        DEMO_DECIDIDOS.discard(chave)  # o próximo clique tenta de novo
+        avisos.append(aviso(f"editar|{cliente}|{horario}|demo",
+                            f"{cliente} {horario}: {botao} de {nome} (demonstração) recebido, mas a mensagem do grupo "
+                            f"não mudou depois de {TENTATIVAS_EDITAR} tentativas ({erro})"))
     if botao == "Ajustar":
         perguntar_o_ajuste(grupo, pessoa, horario, demo=True)
     return True
