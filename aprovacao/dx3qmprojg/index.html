@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calendário do mês</title>
+<style>
+  :root {
+    --fundo: #f6f1e7;
+    --cartao: #fffdf8;
+    --texto: #1f1d18;
+    --suave: #6d675c;
+    --linha: #e4dccc;
+    --verde: #2f5d3a;
+    --vermelho: #c0392b;
+    --raio: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--fundo);
+    color: var(--texto);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    padding-bottom: 140px;
+  }
+  .topo { padding: 22px 16px 10px; max-width: 720px; margin: 0 auto; }
+  .topo small { color: var(--suave); letter-spacing: .04em; text-transform: uppercase; font-size: 12px; }
+  .topo h1 { margin: 4px 0 0; font-size: 26px; line-height: 1.15; }
+  .guia {
+    max-width: 720px; margin: 12px auto 16px; padding: 14px 16px;
+    background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio);
+    font-size: 15px;
+  }
+  .guia p { margin: 0 0 8px; }
+  .guia p:last-child { margin: 0; }
+  .guia b { color: var(--verde); }
+  @media (max-width: 752px) { .guia { margin-left: 16px; margin-right: 16px; } }
+
+  .grade {
+    max-width: 720px; margin: 0 auto; padding: 0 16px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+  }
+  .bloco { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 4px; background: var(--linha); cursor: pointer; border: 0; padding: 0; }
+  .bloco img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bloco .dia {
+    position: absolute; left: 6px; top: 6px;
+    background: rgba(255,255,255,.92); color: var(--texto);
+    font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+  }
+  .bloco .varias {
+    position: absolute; right: 6px; top: 6px; width: 20px; height: 20px;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  }
+
+  /* visor: um post por tela, passa pra cima */
+  .visor {
+    position: fixed; inset: 0; background: var(--fundo); z-index: 10;
+    display: none; flex-direction: column;
+  }
+  .visor.aberto { display: flex; }
+  .visor-barra {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: max(10px, env(safe-area-inset-top)) 16px 10px;
+    border-bottom: 1px solid var(--linha); background: var(--fundo);
+  }
+  .visor-barra button {
+    background: none; border: 0; font: inherit; font-weight: 600; color: var(--verde);
+    padding: 6px 0; cursor: pointer;
+  }
+  .visor-barra span { color: var(--suave); font-size: 14px; }
+  body.gravando #voltar { visibility: hidden; }
+  .lista { flex: 1; overflow-y: auto; scroll-snap-type: y mandatory; }
+  .post {
+    scroll-snap-align: start; min-height: 100%;
+    padding: 14px 16px 150px; max-width: 520px; margin: 0 auto;
+  }
+  .post h2 { margin: 0 0 10px; font-size: 18px; }
+  .post h2 span { color: var(--suave); font-weight: 400; }
+  .fotos {
+    display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+    border-radius: 8px; background: var(--linha);
+  }
+  .fotos img { flex: 0 0 100%; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; scroll-snap-align: center; }
+  .pontos { display: flex; justify-content: center; gap: 5px; margin-top: 8px; }
+  .pontos i { width: 6px; height: 6px; border-radius: 50%; background: var(--linha); }
+  .pontos i.ativo { background: var(--verde); }
+  .legenda { margin-top: 12px; font-size: 15px; white-space: pre-line; }
+  .legenda.curta { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .mais { background: none; border: 0; color: var(--suave); font: inherit; font-size: 14px; padding: 4px 0; cursor: pointer; }
+
+  /* gravação, sempre embaixo */
+  .gravador {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 12px 16px max(14px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--fundo) 70%, rgba(246,241,231,0));
+  }
+  .gravador .dentro { max-width: 520px; margin: 0 auto; }
+  .lembrete {
+    display: none; text-align: center; font-size: 14px; color: var(--texto);
+    background: var(--cartao); border: 1px solid var(--linha); border-radius: 10px;
+    padding: 8px 10px; margin-bottom: 8px;
+  }
+  .gravando .lembrete { display: block; }
+  .botao {
+    width: 100%; border: 0; border-radius: 999px; padding: 16px;
+    font: inherit; font-size: 17px; font-weight: 700; color: #fff; background: var(--verde);
+    display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer;
+  }
+  .gravando .botao { background: var(--vermelho); }
+  .bola { width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+  .gravando .bola { animation: pisca 1s infinite; }
+  @keyframes pisca { 50% { opacity: .25; } }
+  .erro { display: none; margin-top: 8px; font-size: 14px; color: var(--vermelho); text-align: center; }
+
+  /* fim */
+  .fim { display: none; max-width: 520px; margin: 0 auto; padding: 40px 16px; }
+  .fim.aberto { display: block; }
+  .fim h1 { font-size: 26px; margin: 0 0 6px; }
+  .fim p { color: var(--suave); margin: 0 0 18px; }
+  .bastidor { background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); padding: 14px 16px; }
+  .bastidor h3 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); }
+  .bastidor audio { width: 100%; margin-bottom: 12px; }
+  .bastidor ol { margin: 0; padding-left: 20px; font-size: 15px; }
+  .bastidor li { margin-bottom: 4px; }
+  .bastidor .tempo { font-variant-numeric: tabular-nums; color: var(--suave); }
+  .denovo { margin-top: 16px; background: none; border: 1px solid var(--linha); border-radius: 999px; padding: 10px 16px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<main id="inicio">
+  <header class="topo">
+    <small id="cliente"></small>
+    <h1 id="titulo"></h1>
+  </header>
+  <section class="guia">
+    <p>Dá uma olhada nos posts. Se algo precisar mudar, aperte <b>Gravar</b>, vá passando os posts e fale.</p>
+    <p>Não precisa dizer qual post é: a gente sabe qual estava na sua tela.</p>
+    <p>No fim, diga <b>"o restante está tudo certo"</b>.</p>
+  </section>
+  <section class="grade" id="grade"></section>
+</main>
+
+<section class="visor" id="visor">
+  <div class="visor-barra">
+    <button id="voltar">Ver o mês</button>
+    <span id="posicao"></span>
+  </div>
+  <div class="lista" id="lista"></div>
+</section>
+
+<section class="fim" id="fim">
+  <h1>Recebido</h1>
+  <p>Obrigado! Já estamos olhando o que você pediu.</p>
+  <div class="bastidor">
+    <h3>Só no protótipo: o que o robô recebe</h3>
+    <audio id="ouvir" controls></audio>
+    <ol id="linha"></ol>
+  </div>
+  <button class="denovo" id="denovo">Gravar de novo</button>
+</section>
+
+<div class="gravador" id="gravador">
+  <div class="dentro">
+    <div class="lembrete">Vá passando os posts e falando. No fim, diga: "o restante está tudo certo".</div>
+    <button class="botao" id="botao"><span class="bola"></span><span id="rotulo">Gravar áudio</span></button>
+    <div class="erro" id="erro"></div>
+  </div>
+</div>
+
+<script>
+const DADOS = {"cliente": "Aloe Vita", "mes": "dezembro", "posts": [{"id": "2026-12-03", "dia": "qui", "data": "03/12", "hora": "12h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-05.jpg"], "legenda": "Pontas secas e nenhuma vontade de mudar a rotina inteira? 🌿\n\nAntes do xampu, passe o gel transparente da babosa só nas pontas.\nDeixe uns minutos e lave do jeito que você já lava.\nNa cosmética, a babosa é usada sobretudo pela ação hidratante. Começar pelas pontas é o jeito mais simples de testar no seu cabelo.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #pontasressecadas #cuidadoscapilares"}, {"id": "2026-12-04", "dia": "sex", "data": "04/12", "hora": "12h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-06.jpg"], "legenda": "Já se perguntou o que tem dentro daquele gel? 🌿\n\nAté 99% dele é água.\nO resto são cerca de 200 compostos, como polissacarídeos, aminoácidos, vitaminas e minerais.\nNa cosmética, a babosa é usada sobretudo pela ação hidratante, e aparece em xampu, condicionador e tônico capilar.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #cuidadoscapilares #hidratacaocapilar"}, {"id": "2026-12-05", "dia": "sáb", "data": "05/12", "hora": "12h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-07.jpg"], "legenda": "Vai passar babosa no couro cabeludo pela primeira vez? 🌿\n\nPele sensível pode ter irritação com ela.\nAntes, passe um pouco do gel transparente numa área pequena da pele e espere.\nSe ficar tudo bem, siga. Se irritar, pare por aí.\nE use só o gel de dentro da folha: a seiva amarela perto da casca pode irritar a pele.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #cuidadoscapilares #dicasnaturais"}, {"id": "2026-12-06", "dia": "dom", "data": "06/12", "hora": "12h", "tipo": "carrossel", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/carrossel-2026-11-08-1.jpg", "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/carrossel-2026-11-08-2.jpg", "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/carrossel-2026-11-08-3.jpg", "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/carrossel-2026-11-08-4.jpg", "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/carrossel-2026-11-08-5.jpg"], "legenda": "Perdeu alguma dica da semana? 🌿\n\nA gente juntou as três aqui, na ordem pra começar:\n✅ Gel transparente nas pontas, antes de lavar\n✅ Quase todo água, por isso hidrata\n✅ Teste numa área pequena antes\n\nArraste pro lado e salva o post pra ter à mão.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelosaudavel #cuidadoscapilares #cabelonatural"}, {"id": "2026-12-10", "dia": "qui", "data": "10/12", "hora": "12h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-19-v2.jpg"], "legenda": "Seu cabelo também anda mais seco e áspero com esse calor? 🌿\n\nSol, piscina e mar deixam o fio seco, e as pontas são as primeiras a sentir.\n\nO jeito mais simples: antes do banho, passe o gel transparente da babosa nas pontas e deixe uns minutos. Depois lave como sempre.\n\nNa cosmética, a babosa é usada sobretudo pela ação hidratante. É um cuidado fácil pra temporada de calor.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabeloressecado #cuidadocapilar #verao"}, {"id": "2026-12-11", "dia": "sex", "data": "11/12", "hora": "12h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-20.jpg"], "legenda": "Receita que promete cabelo crescendo em poucos dias merece desconfiança.\n\nToda semana aparece uma nova, e a babosa quase sempre está na mistura.\n\nO que os artigos mostram dela: o gel é quase todo água, até 99%, e o acemanano, o composto mais abundante, ajuda a reter água. Por isso a cosmética usa a babosa pela ação hidratante.\n\nÉ cuidado de rotina, pra deixar o fio menos seco.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #cabelo #cuidadocapilar #cabelonatural"}, {"id": "2026-12-12", "dia": "sáb", "data": "12/12", "hora": "12h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-21.jpg"], "legenda": "Muita gente corta a folha e já passa tudo no cabelo, casca e seiva junto.\n\nA seiva amarela que sai perto da casca é a aloína, e ela pode irritar a pele.\n\nEm casa fica assim: corte a folha, deixe em pé uns minutos pra seiva amarela escorrer, tire a casca e use só o gel transparente de dentro.\n\nPrimeira vez? Teste numa área pequena antes de passar no couro cabeludo.\n\nO gel de babosa que a gente indica está no link da bio. 🌿\n\n#babosa #aloevera #gelbabosa #cuidadocapilar #cabelonatural"}, {"id": "2026-12-13", "dia": "dom", "data": "13/12", "hora": "12h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-22-v3.jpg"], "legenda": "Você vira o frasco do xampu no banho e lá está ela no rótulo: aloe vera.\n\nA babosa aparece em xampus, condicionadores e tônicos capilares, e o motivo principal é a ação hidratante.\n\nNum estudo com xampu de babosa (Babu e outros, 2021), a fórmula condicionou, deixou o cabelo mais macio e não irritou nos testes.\n\nPra quem tem a planta em casa, dá pra misturar uma colher do gel transparente ao condicionador de sempre, sem passo a mais no banho.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #xampu #cuidadocapilar #cabelonatural"}]};
+const $ = (id) => document.getElementById(id);
+
+$("cliente").textContent = DADOS.cliente;
+$("titulo").textContent = "Posts de " + DADOS.mes;
+document.title = DADOS.cliente + ": " + DADOS.mes;
+
+const iconeVarias = '<svg class="varias" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></svg>';
+const nome = (p) => p.dia + " " + p.data + ", " + p.hora;
+
+// grade do mês
+DADOS.posts.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.className = "bloco";
+  b.innerHTML = '<img alt="" src="' + p.imagens[0] + '">' +
+    (p.imagens.length > 1 ? iconeVarias : "") +
+    '<span class="dia">' + p.dia + " " + p.data + "</span>";
+  b.onclick = () => abrirVisor(i);
+  $("grade").appendChild(b);
+});
+
+// visor
+DADOS.posts.forEach((p, i) => {
+  const s = document.createElement("article");
+  s.className = "post";
+  s.dataset.i = i;
+  const fotos = p.imagens.map((u) => '<img loading="lazy" alt="" src="' + u + '">').join("");
+  const pontos = p.imagens.length > 1
+    ? '<div class="pontos">' + p.imagens.map((_, k) => '<i class="' + (k ? "" : "ativo") + '"></i>').join("") + "</div>" : "";
+  s.innerHTML = '<h2>' + p.dia + " " + p.data + ' <span>' + p.hora + "</span></h2>" +
+    '<div class="fotos">' + fotos + "</div>" + pontos +
+    '<div class="legenda curta"></div><button class="mais">ver legenda inteira</button>';
+  s.querySelector(".legenda").textContent = p.legenda;
+  const mais = s.querySelector(".mais");
+  mais.onclick = () => {
+    const l = s.querySelector(".legenda");
+    l.classList.toggle("curta");
+    mais.textContent = l.classList.contains("curta") ? "ver legenda inteira" : "mostrar menos";
+  };
+  const trilho = s.querySelector(".fotos");
+  trilho.addEventListener("scroll", () => {
+    const k = Math.round(trilho.scrollLeft / trilho.clientWidth);
+    if (k !== (+trilho.dataset.k || 0)) {
+      trilho.dataset.k = k;
+      s.querySelectorAll(".pontos i").forEach((d, j) => d.classList.toggle("ativo", j === k));
+      atualizar();
+    }
+  }, { passive: true });
+  $("lista").appendChild(s);
+});
+
+let postAtual = null;
+const visivel = new IntersectionObserver((entradas) => {
+  entradas.forEach((e) => { if (e.isIntersecting) { postAtual = +e.target.dataset.i; atualizar(); } });
+}, { root: $("lista"), threshold: 0.55 });
+document.querySelectorAll(".post").forEach((s) => visivel.observe(s));
+
+function abrirVisor(i) {
+  $("visor").classList.add("aberto");
+  const alvo = $("lista").children[i];
+  $("lista").scrollTop = alvo.offsetTop;
+  postAtual = i;
+  atualizar();
+}
+$("voltar").onclick = () => { $("visor").classList.remove("aberto"); atualizar(); };
+
+// onde a pessoa está agora: "grade" ou post (e slide do carrossel)
+function ondeEsta() {
+  if (!$("visor").classList.contains("aberto") || postAtual === null) return "a grade do mês";
+  const p = DADOS.posts[postAtual];
+  let t = "post de " + nome(p);
+  if (p.imagens.length > 1) {
+    const k = +($("lista").children[postAtual].querySelector(".fotos").dataset.k || 0);
+    t += " (slide " + (k + 1) + " de " + p.imagens.length + ")";
+  }
+  return t;
+}
+
+function atualizar() {
+  if ($("visor").classList.contains("aberto") && postAtual !== null) {
+    $("posicao").textContent = (postAtual + 1) + " de " + DADOS.posts.length;
+  }
+  if (gravacao) marcar();
+}
+
+// gravação
+let gravacao = null, pedacos = [], inicio = 0, marcas = [], relogio = null;
+
+function marcar() {
+  const onde = ondeEsta();
+  const ultima = marcas[marcas.length - 1];
+  if (ultima && ultima.onde === onde) return;
+  marcas.push({ t: (performance.now() - inicio) / 1000, onde });
+}
+
+function formato() {
+  const op = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg"];
+  return op.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+}
+
+const mmss = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+
+async function comecar() {
+  $("erro").style.display = "none";
+  let fluxo;
+  try {
+    fluxo = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    $("erro").textContent = "Não deu pra usar o microfone (" + (e.name || e) + "). Abra este link no navegador do celular e permita o microfone.";
+    $("erro").style.display = "block";
+    return;
+  }
+  const tipo = formato();
+  gravacao = new MediaRecorder(fluxo, tipo ? { mimeType: tipo } : undefined);
+  pedacos = []; marcas = [];
+  gravacao.ondataavailable = (e) => { if (e.data.size) pedacos.push(e.data); };
+  gravacao.onstop = () => terminar(fluxo);
+  // grava sempre com um post aberto: da grade, abre o primeiro
+  inicio = performance.now();
+  if (!$("visor").classList.contains("aberto")) abrirVisor(0);
+  gravacao.start(1000);
+  marcar();
+  $("gravador").classList.add("gravando");
+  document.body.classList.add("gravando");
+  relogio = setInterval(() => {
+    $("rotulo").textContent = "Gravando " + mmss((performance.now() - inicio) / 1000) + ", toque pra enviar";
+  }, 250);
+  $("rotulo").textContent = "Gravando 0:00, toque pra enviar";
+}
+
+function parar() {
+  clearInterval(relogio);
+  marcas.push({ t: (performance.now() - inicio) / 1000, onde: "fim" });
+  gravacao.stop();
+}
+
+function terminar(fluxo) {
+  fluxo.getTracks().forEach((t) => t.stop());
+  const audio = new Blob(pedacos, { type: gravacao.mimeType || "audio/webm" });
+  gravacao = null;
+  $("gravador").classList.remove("gravando");
+  document.body.classList.remove("gravando");
+  $("rotulo").textContent = "Gravar áudio";
+  $("ouvir").src = URL.createObjectURL(audio);
+  const ol = $("linha");
+  ol.innerHTML = "";
+  for (let k = 0; k < marcas.length - 1; k++) {
+    const a = marcas[k], b = marcas[k + 1];
+    if (b.t - a.t < 0.8) continue; // passou rápido, não conta
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="tempo">' + mmss(a.t) + " a " + mmss(b.t) + "</span> ";
+    li.appendChild(document.createTextNode(a.onde));
+    ol.appendChild(li);
+  }
+  $("visor").classList.remove("aberto");
+  $("inicio").style.display = "none";
+  $("gravador").style.display = "none";
+  $("fim").classList.add("aberto");
+  window.scrollTo(0, 0);
+}
+
+$("botao").onclick = () => (gravacao ? parar() : comecar());
+$("denovo").onclick = () => {
+  $("fim").classList.remove("aberto");
+  $("inicio").style.display = "";
+  $("gravador").style.display = "";
+};
+</script>
+</body>
+</html>
