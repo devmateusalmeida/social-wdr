@@ -6,8 +6,9 @@ pessoa no Telegram: nome). Os números não são segredo; sem o token ninguém
 faz nada com eles.
 
 Cada horário vai pro grupo como as artes (feed e story juntos) e uma mensagem
-com a legenda e os botões Aprovar e Ajustar. No carrossel vão os slides na
-ordem e o story, no mesmo álbum (até 10 imagens por álbum no Telegram; passou
+com a legenda e os botões Aprovar e Ajustar. O story não vai pro grupo (sai
+junto e aparece no PDF do mês, pedido do William em 17/11). No carrossel vão
+os slides na ordem, no mesmo álbum (até 10 imagens por álbum no Telegram; passou
 disso, vai em mais de um), e a mensagem com os botões logo abaixo. O post fica "esperando
 aprovação" na fila e o publicador não mexe nele até alguém aprovar.
 
@@ -226,7 +227,9 @@ def enviar_dia(cliente, itens, artes):
     """Manda as artes de um dia e a mensagem com os botões. artes: id do item -> arquivo no PC
     (no carrossel, a lista dos slides na ordem). Devolve o número da mensagem dos botões"""
     grupo = config(cliente)["grupo"]
-    arquivos = artes_em_ordem(itens, artes)
+    # o story não aparece no grupo (pedido do William, 17/11): ele sai junto e é visto no PDF do mês
+    sem_story = [i for i in itens if i["tipo"] != "story"] or itens
+    arquivos = artes_em_ordem(sem_story, artes)
     for inicio in range(0, len(arquivos), ALBUM_MAXIMO):
         parte = arquivos[inicio:inicio + ALBUM_MAXIMO]
         if len(parte) == 1:  # álbum precisa de 2 ou mais
@@ -326,6 +329,9 @@ def tratar(u, salvar, agora, avisos):
             avisos.append(aviso(f"supergrupo|{msg['chat']['id']}",
                                 f"O grupo {msg['chat'].get('title')} virou supergrupo: no aprovacao.json, trocar "
                                 f"{msg['chat']['id']} por {msg['migrate_to_chat_id']}"))
+        pergunta = msg.get("reply_to_message") or {}
+        if pergunta.get("from", {}).get("is_bot") and PERGUNTA_AJUSTE in pergunta.get("text", "") and msg.get("text"):
+            anotar_ajuste(msg, pergunta, avisos)
         return True
     clique = u.get("callback_query")
     if not clique:
@@ -367,7 +373,7 @@ def tratar(u, salvar, agora, avisos):
                              f"o número {clique['from']['id']} no aprovacao.json.", msg.get("message_id"), avisos)
         return True
     if versao_botao == DEMONSTRACAO:
-        return clique_de_demonstracao(cfg["grupo"], cliente, horario, botao, nome, msg, responder)
+        return clique_de_demonstracao(cfg["grupo"], cliente, horario, botao, nome, msg, responder, clique["from"])
 
     if acao == "a":
         de, para = (ESPERANDO,), {"situacao": "aguardando", "aprovado_por": nome, "aprovado_em": agora.isoformat()}
@@ -408,9 +414,10 @@ def tratar(u, salvar, agora, avisos):
             situacao = f"APROVADO por {nome}. " + ("Sai no horário." if agora < quando else
                                                    "Saindo agora, depois do horário.")
         else:
-            situacao = (f"AJUSTE pedido por {nome}. Escreva aqui no grupo o que mudar; o William refaz "
-                        f"e manda de novo pra aprovar.")
+            situacao = TEXTO_AJUSTE.format(nome=nome)
         erro = editar(cfg["grupo"], msg["message_id"], f"{base}\n\n{situacao}")
+        if acao == "j":
+            perguntar_o_ajuste(cfg["grupo"], clique["from"], horario)
         if erro:
             avisos.append(aviso(f"editar|{cliente}|{horario}",
                                 f"{cliente} {horario}: gravado na fila, mas não consegui mudar a mensagem do grupo ({erro})"))
@@ -505,19 +512,73 @@ def expirar(cliente, grupo, horario, itens, salvar, agora):
     return avisos
 
 
-def clique_de_demonstracao(grupo, cliente, horario, botao, nome, msg, responder):
+DEMO_DECIDIDOS = set()  # (grupo, mensagem) de demonstração já decidida nesta volta
+
+
+def clique_de_demonstracao(grupo, cliente, horario, botao, nome, msg, responder, pessoa):
     """Post de demonstração (botão com versão 0, sistema/demo_mes.py): fica igual ao de verdade no grupo, mas está
-    fora da fila e não sai"""
+    fora da fila e não sai. Vale o primeiro clique, como no de verdade (lá a fila guarda a decisão): quem clica de
+    novo antes da confirmação aparecer não troca o que já foi decidido"""
+    chave = (grupo, msg.get("message_id"))
+    ultimo = msg.get("text", "").rsplit("\n\n", 1)[-1]
+    if chave in DEMO_DECIDIDOS or ultimo.startswith(("APROVADO por", "AJUSTE pedido por")):
+        print(f"Telegram: {botao} em {cliente} {horario}: demonstração já decidida, nada mudou")
+        responder("Esse post já foi decidido.")
+        return True
+    DEMO_DECIDIDOS.add(chave)
     print(f"Telegram: {botao} em {cliente} {horario}: demonstração, nada gravado")
     responder("Recebido")
     if botao == "Aprovar":
         situacao = f"APROVADO por {nome}. Sai no horário."
     else:
-        situacao = (f"AJUSTE pedido por {nome}. Escreva aqui no grupo o que mudar; o William refaz "
-                    f"e manda de novo pra aprovar.")
+        situacao = TEXTO_AJUSTE.format(nome=nome)
     base = msg.get("text", "").rsplit("\n\n", 1)[0]
     editar(grupo, msg.get("message_id"), f"{base}\n\n{situacao}\n(Demonstração: este post não sai pelo robô.)")
+    if botao == "Ajustar":
+        perguntar_o_ajuste(grupo, pessoa, horario, demo=True)
     return True
+
+
+TEXTO_AJUSTE = ("AJUSTE pedido por {nome}. Responda a pergunta logo abaixo com o que mudar; o William refaz "
+                "e manda de novo pra aprovar.")
+PERGUNTA_AJUSTE = "o que você quer mudar no post de"
+
+
+def perguntar_o_ajuste(grupo, pessoa, horario, demo=False):
+    """Depois do Ajustar: pergunta no grupo o que mudar, já com a caixa de resposta aberta pra quem clicou"""
+    d = datetime.fromisoformat(horario)
+    nome = pessoa.get("first_name") or "Oi"
+    texto = (f"{nome}, {PERGUNTA_AJUSTE} {DIAS[d.weekday()]}, {d:%d/%m}? Responda esta mensagem com o que trocar."
+             + ("\n(Demonstração.)" if demo else ""))
+    try:
+        pedir("sendMessage", chat_id=grupo, text=texto,
+              entities=[{"type": "text_mention", "offset": 0, "length": len(nome.encode("utf-16-le")) // 2,
+                         "user": pessoa}],
+              reply_markup={"force_reply": True, "selective": True, "input_field_placeholder": "O que mudar no post"})
+    except ErroTelegram as e:
+        print(f"Telegram: não consegui perguntar o ajuste ({e})")
+
+
+def anotar_ajuste(msg, pergunta, avisos):
+    """Resposta à pergunta do ajuste: confirma no grupo e, no de verdade, avisa quem refaz"""
+    grupo = msg.get("chat", {}).get("id")
+    tudo = json.loads((RAIZ / "aprovacao.json").read_text(encoding="utf-8"))
+    cliente = next((c for c, v in tudo.items() if isinstance(v, dict) and v.get("grupo") == grupo), None)
+    if not cliente:
+        return
+    demo = "(Demonstração.)" in pergunta.get("text", "")
+    quem = msg.get("from", {}).get("first_name", "Alguém")
+    dia = pergunta.get("text", "").split(PERGUNTA_AJUSTE, 1)[-1].split("?", 1)[0].strip()
+    print(f"Telegram: ajuste de {cliente} ({dia}) escrito por {quem}{' (demonstração)' if demo else ''}")
+    try:
+        pedir("sendMessage", chat_id=grupo, reply_to_message_id=msg.get("message_id"),
+              text="Anotado. O William refaz e a versão nova chega aqui pra aprovar."
+                   + ("\n(Demonstração: nada foi mudado.)" if demo else ""))
+    except ErroTelegram as e:
+        print(f"Telegram: não consegui confirmar o ajuste ({e})")
+    if not demo:
+        avisos.append(aviso(f"ajuste|{cliente}|{msg.get('message_id')}",
+                            f"{cliente}: {quem} pediu ajuste no post de {dia}: {msg.get('text', '')[:500]}"))
 
 
 def clique_do_plano(cliente, escolha, periodo, clique, msg, responder):

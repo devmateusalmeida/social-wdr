@@ -54,7 +54,9 @@ async function doTelegram(pedido, env, ctx) {
   return Response.json({
     method: "answerCallbackQuery",
     callback_query_id: clique.id,
-    text: "Recebido. A confirmação aparece na mensagem em até 1 min.",
+    // janela com OK (17/11): o aviso pequeno passava despercebido e a pessoa clicava de novo antes da confirmação
+    text: "Recebido! Em até 1 minuto esta mensagem muda pra mostrar a decisão. Não precisa clicar de novo.",
+    show_alert: true,
   });
 }
 
