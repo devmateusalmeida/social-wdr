@@ -203,11 +203,13 @@
       "quando": "2026-11-22T12:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-22.jpg",
       "legenda": "Você vira o frasco do xampu no banho e lá está ela no rótulo: aloe vera.\n\nA babosa aparece em xampus, condicionadores e tônicos capilares, e o motivo principal é a ação hidratante.\n\nNum estudo com xampu de babosa (Babu e outros, 2021), a fórmula condicionou, deixou o cabelo mais macio e não irritou nos testes.\n\nPra quem tem a planta em casa, dá pra misturar uma colher do gel transparente ao condicionador de sempre, sem passo a mais no banho.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #xampu #cuidadocapilar #cabelonatural",
-      "situacao": "esperando aprovação",
+      "situacao": "ajuste",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/feed-11-22.jpg",
       "enviado_em": "2026-11-18T12:09:04.001774-03:00",
-      "mensagem": 116
+      "mensagem": 116,
+      "ajuste_pedido_por": "Mateus",
+      "ajuste_pedido_em": "2026-11-18T12:10:05.576523-03:00"
     },
     {
       "id": "2026-11-22-story",
