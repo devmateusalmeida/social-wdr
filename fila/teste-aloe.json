@@ -168,6 +168,50 @@
       "caixa": "18085063919534742",
       "instagram_id": "17953679637051269",
       "publicado_em": "2026-11-08T12:00:55.550634-03:00"
+    },
+    {
+      "id": "2026-11-21-feed",
+      "tipo": "feed",
+      "quando": "2026-11-21T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-21.jpg",
+      "legenda": "Muita gente corta a folha e já passa tudo no cabelo, casca e seiva junto.\n\nA seiva amarela que sai perto da casca é a aloína, e ela pode irritar a pele.\n\nEm casa fica assim: corte a folha, deixe em pé uns minutos pra seiva amarela escorrer, tire a casca e use só o gel transparente de dentro.\n\nPrimeira vez? Teste numa área pequena antes de passar no couro cabeludo.\n\nO gel de babosa que a gente indica está no link da bio. 🌿\n\n#babosa #aloevera #gelbabosa #cuidadocapilar #cabelonatural",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/feed-11-21.jpg",
+      "enviado_em": "2026-11-18T12:08:55.239044-03:00"
+    },
+    {
+      "id": "2026-11-21-story",
+      "tipo": "story",
+      "quando": "2026-11-21T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-21.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/story-11-21.jpg",
+      "enviado_em": "2026-11-18T12:08:55.240045-03:00"
+    },
+    {
+      "id": "2026-11-22-feed",
+      "tipo": "feed",
+      "quando": "2026-11-22T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/feed-2026-11-22.jpg",
+      "legenda": "Você vira o frasco do xampu no banho e lá está ela no rótulo: aloe vera.\n\nA babosa aparece em xampus, condicionadores e tônicos capilares, e o motivo principal é a ação hidratante.\n\nNum estudo com xampu de babosa (Babu e outros, 2021), a fórmula condicionou, deixou o cabelo mais macio e não irritou nos testes.\n\nPra quem tem a planta em casa, dá pra misturar uma colher do gel transparente ao condicionador de sempre, sem passo a mais no banho.\n\nO gel de babosa que a gente indica está no link da bio.\n\n#babosa #aloevera #xampu #cuidadocapilar #cabelonatural",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/feed-11-22.jpg",
+      "enviado_em": "2026-11-18T12:08:55.241046-03:00"
+    },
+    {
+      "id": "2026-11-22-story",
+      "tipo": "story",
+      "quando": "2026-11-22T12:00:00-03:00",
+      "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-22.jpg",
+      "legenda": "",
+      "situacao": "esperando aprovação",
+      "tentativas": 0,
+      "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/story-11-22.jpg",
+      "enviado_em": "2026-11-18T12:08:55.241046-03:00"
     }
   ]
 }
