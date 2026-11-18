@@ -139,6 +139,7 @@
   .ajuste small { display: block; color: var(--verde); font-size: 13px; margin-top: 2px; }
   .acoes { display: grid; gap: 8px; margin-top: 12px; }
   .secundario { background: none; color: var(--texto); border: 1px solid var(--linha); font-weight: 600; }
+  #reabrir { margin-top: 4px; border-color: var(--verde); color: var(--verde); font-size: 16px; padding: 13px; }
   .bloco .nova { position: absolute; left: 6px; bottom: 6px; background: var(--verde); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
   .post .tag { display: inline-block; background: var(--verde); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
   .comoera { background: none; border: 0; color: var(--verde); font: inherit; font-size: 14px; font-weight: 600; padding: 6px 0; cursor: pointer; }
@@ -436,11 +437,11 @@ function encerrar(quando) {
   if (DADOS.etapa === "versoes") {
     caixa.innerHTML = "<h2>" + mes + " aprovado ✓</h2><p>Aprovado por você em " + quandoTexto + ".</p>" +
       "<p>Os " + DADOS.posts.length + " posts saem nos dias marcados. Pode fechar esta página.</p>" +
-      '<button class="mais" id="reabrir">Quero mudar mais alguma coisa</button>';
+      '<button class="botao secundario" id="reabrir">Quero mudar mais alguma coisa</button>';
   } else {
     caixa.innerHTML = "<h2>Combinado!</h2><p>Confirmado em " + quandoTexto + ".</p>" +
       "<p>Te avisamos no grupo quando os ajustes ficarem prontos. Pode fechar esta página.</p>" +
-      '<button class="mais" id="reabrir">Esqueci de falar algo</button>';
+      '<button class="botao secundario" id="reabrir">Esqueci de falar algo</button>';
   }
   document.querySelector(".guia").style.display = "none";
   $("gravador").style.display = "none";
