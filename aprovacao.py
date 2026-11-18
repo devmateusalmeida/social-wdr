@@ -344,6 +344,9 @@ def tratar(u, salvar, agora, avisos):
             avisos.append(aviso(f"supergrupo|{msg['chat']['id']}",
                                 f"O grupo {msg['chat'].get('title')} virou supergrupo: no aprovacao.json, trocar "
                                 f"{msg['chat']['id']} por {msg['migrate_to_chat_id']}"))
+        pergunta = msg.get("reply_to_message") or {}
+        if pergunta.get("from", {}).get("is_bot") and PERGUNTA_AJUSTE in pergunta.get("text", "") and msg.get("text"):
+            anotar_ajuste(msg, pergunta, avisos)
         return True
     clique = u.get("callback_query")
     if not clique:
@@ -429,6 +432,8 @@ def tratar(u, salvar, agora, avisos):
         else:
             situacao = TEXTO_AJUSTE.format(nome=nome)
         erro = editar(cfg["grupo"], msg["message_id"], f"{base}\n\n{situacao}")
+        if acao == "j":
+            perguntar_o_ajuste(cfg["grupo"], clique["from"], horario)
         if erro:
             avisos.append(aviso(f"editar|{cliente}|{horario}",
                                 f"{cliente} {horario}: gravado na fila, mas não consegui mudar a mensagem do grupo ({erro})"))
@@ -550,11 +555,51 @@ def clique_de_demonstracao(grupo, cliente, horario, botao, nome, msg, responder,
         avisos.append(aviso(f"editar|{cliente}|{horario}|demo",
                             f"{cliente} {horario}: {botao} de {nome} (demonstração) recebido, mas a mensagem do grupo "
                             f"não mudou depois de {TENTATIVAS_EDITAR} tentativas ({erro})"))
+    if botao == "Ajustar":
+        perguntar_o_ajuste(grupo, pessoa, horario, demo=True)
     return True
 
 
-TEXTO_AJUSTE = ("AJUSTE pedido por {nome}. Escreva aqui no grupo o que mudar; o William refaz "
-                "e manda de novo pra aprovar.")  # o de sempre, aprovado no aloe e no livro
+TEXTO_AJUSTE = ("AJUSTE pedido por {nome}. Responda a pergunta logo abaixo com o que mudar; o William refaz "
+                "e manda de novo pra aprovar.")
+PERGUNTA_AJUSTE = "o que você quer mudar no post de"
+
+
+def perguntar_o_ajuste(grupo, pessoa, horario, demo=False):
+    """Depois do Ajustar: pergunta no grupo o que mudar, já com a caixa de resposta aberta pra quem clicou"""
+    d = datetime.fromisoformat(horario)
+    nome = pessoa.get("first_name") or "Oi"
+    texto = (f"{nome}, {PERGUNTA_AJUSTE} {DIAS[d.weekday()]}, {d:%d/%m}? Responda esta mensagem com o que trocar."
+             + ("\n(Demonstração.)" if demo else ""))
+    try:
+        pedir("sendMessage", chat_id=grupo, text=texto,
+              entities=[{"type": "text_mention", "offset": 0, "length": len(nome.encode("utf-16-le")) // 2,
+                         "user": pessoa}],
+              reply_markup={"force_reply": True, "selective": True, "input_field_placeholder": "O que mudar no post"})
+    except ErroTelegram as e:
+        print(f"Telegram: não consegui perguntar o ajuste ({e})")
+
+
+def anotar_ajuste(msg, pergunta, avisos):
+    """Resposta à pergunta do ajuste: confirma no grupo e, no de verdade, avisa quem refaz"""
+    grupo = msg.get("chat", {}).get("id")
+    tudo = json.loads((RAIZ / "aprovacao.json").read_text(encoding="utf-8"))
+    cliente = next((c for c, v in tudo.items() if isinstance(v, dict) and v.get("grupo") == grupo), None)
+    if not cliente:
+        return
+    demo = "(Demonstração.)" in pergunta.get("text", "")
+    quem = msg.get("from", {}).get("first_name", "Alguém")
+    dia = pergunta.get("text", "").split(PERGUNTA_AJUSTE, 1)[-1].split("?", 1)[0].strip()
+    print(f"Telegram: ajuste de {cliente} ({dia}) escrito por {quem}{' (demonstração)' if demo else ''}")
+    try:
+        pedir("sendMessage", chat_id=grupo, reply_to_message_id=msg.get("message_id"),
+              text="Anotado. O William refaz e a versão nova chega aqui pra aprovar."
+                   + ("\n(Demonstração: nada foi mudado.)" if demo else ""))
+    except ErroTelegram as e:
+        print(f"Telegram: não consegui confirmar o ajuste ({e})")
+    if not demo:
+        avisos.append(aviso(f"ajuste|{cliente}|{msg.get('message_id')}",
+                            f"{cliente}: {quem} pediu ajuste no post de {dia}: {msg.get('text', '')[:500]}"))
 
 
 def clique_do_plano(cliente, escolha, periodo, clique, msg, responder):
