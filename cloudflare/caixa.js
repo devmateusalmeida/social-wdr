@@ -29,7 +29,8 @@ export default {
   async fetch(pedido, env, ctx) {
     const url = new URL(pedido.url);
     try {
-      if (pedido.method === "OPTIONS" && url.pathname === "/audio") return new Response(null, { status: 204, headers: CORS });
+      if (pedido.method === "OPTIONS" && (url.pathname === "/audio" || url.pathname === "/confirmar")) return new Response(null, { status: 204, headers: CORS });
+      if (pedido.method === "POST" && url.pathname === "/confirmar") return await receberConfirmacao(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/audio") return await receberAudio(pedido, env);
       if (pedido.method === "GET" && url.pathname === "/audios") return await listarAudios(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/audios/lido") return await audioLido(pedido, env);
@@ -196,6 +197,33 @@ async function receberAudio(pedido, env) {
   await prepararAudios(env);
   await env.BANCO.prepare("INSERT INTO audios (recebido, cliente, mes, duracao, marcas, arquivo, tipo) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(agora(), cliente, mes, duracao, JSON.stringify(marcas), arquivo, tipo).run();
+  return respostaPagina({ ok: true });
+}
+
+// Cliente confirma na página: etapa "lista" (o Entendi assim está certo) ou
+// "final" (as versões novas ficaram certas). Avisa no privado e guarda.
+const ETAPAS = { lista: "confirmou a lista de ajustes", final: "confirmou que ficou tudo certo" };
+
+async function receberConfirmacao(pedido, env) {
+  const form = await pedido.formData();
+  const cliente = String(form.get("cliente") || "");
+  const mes = String(form.get("mes") || "");
+  const etapa = String(form.get("etapa") || "");
+  if (!/^[a-z0-9-]{1,40}$/.test(cliente) || !/^\d{4}-\d{2}$/.test(mes) || !ETAPAS[etapa]) return respostaPagina({ erro: "pedido errado" }, 400);
+  if (!confere(String(form.get("chave") || ""), await chaveDaPagina(env, cliente, mes))) return respostaPagina({ erro: "não" }, 401);
+  const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+  const texto = `${cliente} (${mes}): o cliente ${ETAPAS[etapa]}, em ${hora}.`;
+  for (const chat of AVISAR) {
+    const r = await fetch(`https://api.telegram.org/bot${env.TOKEN_BOT}/sendMessage`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chat, text: texto }),
+    });
+    if (!(await r.json()).ok) return respostaPagina({ erro: "não consegui avisar" }, 502);
+  }
+  await env.BANCO.prepare("CREATE TABLE IF NOT EXISTS respostas (id INTEGER PRIMARY KEY AUTOINCREMENT, recebido INTEGER NOT NULL, " +
+    "cliente TEXT NOT NULL, mes TEXT NOT NULL, etapa TEXT NOT NULL)").run();
+  await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa) VALUES (?, ?, ?, ?)")
+    .bind(agora(), cliente, mes, etapa).run();
   return respostaPagina({ ok: true });
 }
 
