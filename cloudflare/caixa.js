@@ -33,6 +33,8 @@ export default {
       if (pedido.method === "POST" && url.pathname === "/confirmar") return await receberConfirmacao(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/audio") return await receberAudio(pedido, env);
       if (pedido.method === "GET" && url.pathname === "/audios") return await listarAudios(pedido, env);
+      if (pedido.method === "GET" && url.pathname === "/respostas") return await listarRespostas(pedido, env);
+      if (pedido.method === "POST" && url.pathname === "/respostas/lido") return await respostaLida(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/audios/lido") return await audioLido(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/telegram") return await doTelegram(pedido, env, ctx);
       if (pedido.method === "GET" && url.pathname === "/caixa") return await abrirCaixa(pedido, env, url);
@@ -54,6 +56,9 @@ async function doTelegram(pedido, env, ctx) {
   }
   const novidade = await pedido.json();
   if (!Number.isInteger(novidade.update_id)) return new Response("ok");
+  // botões da pergunta do áudio do mês (mz| e mo|): resolvidos aqui, o robô nem fica sabendo
+  const dadosClique = novidade.callback_query && String(novidade.callback_query.data || "");
+  if (/^m[zo]\|/.test(dadosClique)) return await cliqueDoMes(novidade.callback_query, env);
   await preparar(env);
   // a mesma novidade entregue duas vezes fica uma só (o número é a chave)
   await env.BANCO.prepare("INSERT OR IGNORE INTO caixa (id, recebido, dados) VALUES (?, ?, ?)")
@@ -202,7 +207,12 @@ async function receberAudio(pedido, env) {
 
 // Cliente confirma na página: etapa "lista" (o Entendi assim está certo) ou
 // "final" (as versões novas ficaram certas). Avisa no privado e guarda.
-const ETAPAS = { lista: "confirmou a lista de ajustes", final: "confirmou que ficou tudo certo" };
+// Fala vaga (19/11): "zero" (faz outro do zero, com o post) e "outros" (os
+// outros posts estão ok) vêm dos botões da pergunta no grupo.
+const ETAPAS = {
+  lista: "confirmou a lista de ajustes", final: "confirmou que ficou tudo certo",
+  zero: "pediu outro do zero", outros: "disse que os outros posts estão ok",
+};
 
 async function receberConfirmacao(pedido, env) {
   const form = await pedido.formData();
@@ -211,8 +221,11 @@ async function receberConfirmacao(pedido, env) {
   const etapa = String(form.get("etapa") || "");
   if (!/^[a-z0-9-]{1,40}$/.test(cliente) || !/^\d{4}-\d{2}$/.test(mes) || !ETAPAS[etapa]) return respostaPagina({ erro: "pedido errado" }, 400);
   if (!confere(String(form.get("chave") || ""), await chaveDaPagina(env, cliente, mes))) return respostaPagina({ erro: "não" }, 401);
+  const post = String(form.get("post") || "");
+  if (post && !/^\d{4}-\d{2}-\d{2}$/.test(post)) return respostaPagina({ erro: "pedido errado" }, 400);
+  if (etapa === "zero" && !post) return respostaPagina({ erro: "pedido errado" }, 400);
   const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
-  const texto = `${cliente} (${mes}): o cliente ${ETAPAS[etapa]}, em ${hora}.`;
+  const texto = `${cliente} (${mes}): o cliente ${ETAPAS[etapa]}${post ? " pro post " + post : ""}, em ${hora}.`;
   for (const chat of AVISAR) {
     const r = await fetch(`https://api.telegram.org/bot${env.TOKEN_BOT}/sendMessage`, {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -220,10 +233,9 @@ async function receberConfirmacao(pedido, env) {
     });
     if (!(await r.json()).ok) return respostaPagina({ erro: "não consegui avisar" }, 502);
   }
-  await env.BANCO.prepare("CREATE TABLE IF NOT EXISTS respostas (id INTEGER PRIMARY KEY AUTOINCREMENT, recebido INTEGER NOT NULL, " +
-    "cliente TEXT NOT NULL, mes TEXT NOT NULL, etapa TEXT NOT NULL)").run();
-  await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa) VALUES (?, ?, ?, ?)")
-    .bind(agora(), cliente, mes, etapa).run();
+  await prepararRespostas(env);
+  await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa, post) VALUES (?, ?, ?, ?, ?)")
+    .bind(agora(), cliente, mes, etapa, post || null).run();
   return respostaPagina({ ok: true });
 }
 
@@ -249,4 +261,99 @@ async function prepararAudios(env) {
   await env.BANCO.prepare("CREATE TABLE IF NOT EXISTS audios (id INTEGER PRIMARY KEY AUTOINCREMENT, recebido INTEGER NOT NULL, " +
     "cliente TEXT NOT NULL, mes TEXT NOT NULL, duracao REAL, marcas TEXT NOT NULL, arquivo TEXT NOT NULL, tipo TEXT, " +
     "lido INTEGER NOT NULL DEFAULT 0)").run();
+}
+
+// Respostas da página (confirmações e botões da pergunta) que o script do PC ainda não leu.
+async function listarRespostas(pedido, env) {
+  if (!autorizado(pedido, env)) return new Response("não", { status: 401 });
+  await prepararRespostas(env);
+  const { results } = await env.BANCO.prepare(
+    "SELECT id, recebido, cliente, mes, etapa, post FROM respostas WHERE lido = 0 ORDER BY id LIMIT 50").all();
+  return Response.json(results);
+}
+
+async function respostaLida(pedido, env) {
+  if (!autorizado(pedido, env)) return new Response("não", { status: 401 });
+  const { ids } = await pedido.json();
+  if (!Array.isArray(ids) || !ids.every(Number.isInteger)) return new Response("ids errados", { status: 400 });
+  await prepararRespostas(env);
+  await env.BANCO.batch(ids.map((id) => env.BANCO.prepare("UPDATE respostas SET lido = ? WHERE id = ?").bind(agora(), id)));
+  return Response.json({ ok: true });
+}
+
+// A tabela nasceu em 18/11 sem post e sem lido: acrescenta as colunas uma vez (dá erro se já existem).
+async function prepararRespostas(env) {
+  await env.BANCO.prepare("CREATE TABLE IF NOT EXISTS respostas (id INTEGER PRIMARY KEY AUTOINCREMENT, recebido INTEGER NOT NULL, " +
+    "cliente TEXT NOT NULL, mes TEXT NOT NULL, etapa TEXT NOT NULL)").run();
+  for (const coluna of ["post TEXT", "lido INTEGER NOT NULL DEFAULT 0", "origem TEXT"]) {
+    try { await env.BANCO.prepare("ALTER TABLE respostas ADD COLUMN " + coluna).run(); } catch (e) { /* já existe */ }
+  }
+}
+
+// ---------- Pergunta da fala vaga (19/11): cliques direto no Telegram ----------
+// mz|cliente|mes|post|fim   Faz outro do zero (fim=1: ele já disse "o restante está tudo certo")
+// mo|cliente|mes            Sim, os outros posts estão certos
+// Guarda em respostas (o script do PC lê), avisa no privado e muda a mensagem na hora.
+async function cliqueDoMes(clique, env) {
+  const partes = clique.data.split("|");
+  const [tipo, cliente, mes] = partes;
+  const post = tipo === "mz" ? partes[3] : "";
+  const fim = partes[4] === "1";
+  const msg = clique.message || {};
+  const responder = (texto) => Response.json({ method: "answerCallbackQuery", callback_query_id: clique.id, text: texto, show_alert: true });
+  if (!/^[a-z0-9-]{1,40}$/.test(cliente || "") || !/^\d{4}-\d{2}$/.test(mes || "") ||
+      (tipo === "mz" && !/^\d{4}-\d{2}-\d{2}$/.test(post)) || !msg.chat) return responder("Botão antigo, não deu pra usar.");
+  const etapa = tipo === "mz" ? "zero" : "outros";
+  const origem = msg.chat.id + ":" + msg.message_id;
+
+  // clique duplo antes de a mensagem mudar: registra uma vez só
+  await prepararRespostas(env);
+  const ja = await env.BANCO.prepare("SELECT id FROM respostas WHERE origem = ? AND etapa = ? AND IFNULL(post, '') = ?")
+    .bind(origem, etapa, post).first();
+  if (!ja) {
+    await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa, post, origem) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(agora(), cliente, mes, etapa, post || null, origem).run();
+    const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+    for (const chat of AVISAR) {
+      await telegram(env, "sendMessage", { chat_id: chat,
+        text: `${cliente} (${mes}): o cliente ${ETAPAS[etapa]}${post ? " pro post " + post : ""}, em ${hora} (botão do grupo).` });
+    }
+  }
+
+  // a mensagem muda: tira os botões desse post; no último, pergunta dos outros ou fecha
+  const linhas = ((msg.reply_markup || {}).inline_keyboard || []);
+  const urlGravar = (linhas.flat().find((b) => b.url) || {}).url || "";
+  const pagina = urlGravar.split("&d=")[0];
+  const texto = msg.text || "";
+  const FECHO = "Combinado! Te avisamos aqui quando o post novo ficar pronto.";
+  let novo, botoes = [];
+  if (tipo === "mz") {
+    const resto = linhas.filter((l) => !l.some((b) => (b.url || "").includes("post=" + post) || (b.callback_data || "").includes("|" + post + "|")));
+    if (resto.length) {
+      novo = texto + "\n\nCombinado: o post de " + post.slice(8, 10) + "/" + post.slice(5, 7) + " vai ser refeito do zero.";
+      botoes = resto;
+    } else if (!fim) {
+      novo = texto + "\n\nCombinado, vamos refazer do zero, com outra ideia.\n\nE os outros posts, estão certos?";
+      botoes = [[{ text: "Sim, estão certos", callback_data: `mo|${cliente}|${mes}` }]];
+      if (pagina) botoes.push([{ text: "Quero mudar outro", url: pagina }]);
+    } else {
+      novo = texto + "\n\n" + FECHO;
+    }
+  } else {
+    novo = texto + "\n\n" + FECHO;
+  }
+  if (!ja || linhas.length) {
+    await telegram(env, "editMessageText", { chat_id: msg.chat.id, message_id: msg.message_id, text: novo.slice(0, 4000),
+      reply_markup: { inline_keyboard: botoes } });
+  }
+  return responder(tipo === "mz" ? "Combinado! Vamos refazer esse post do zero." : "Combinado! Os outros ficam como estão.");
+}
+
+async function telegram(env, metodo, corpo) {
+  const r = await fetch(`https://api.telegram.org/bot${env.TOKEN_BOT}/${metodo}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo),
+  });
+  const j = await r.json();
+  if (!j.ok) console.log(metodo + " falhou: " + JSON.stringify(j).slice(0, 200));
+  return j;
 }
