@@ -510,44 +510,74 @@ mostrarEtapa();
 
 // ---------- botões da pergunta (fala vaga, 19/11) ----------
 // ?acao=sobre&post=ID   abre direto no post pra gravar só sobre ele
-// ?acao=zero&post=ID    o cliente pede outro do zero
-// ?acao=outros          os outros posts estão ok
+// ?acao=zero&post=ID    o cliente pede outro do zero; com &fim=0&ultimo=1 a página
+//                       pergunta dos outros posts (Sim, estão certos / Quero mudar outro)
 // &d=N é o áudio da pergunta: a mesma resposta não vai duas vezes
 const pedido = new URLSearchParams(location.search);
 const acao = pedido.get("acao");
 const postPedido = pedido.get("post");
 const iPedido = DADOS.posts.findIndex((p) => p.id === postPedido);
+const marcaResp = (etapa) => "resposta-" + DADOS.clienteId + "-" + DADOS.mesId + "-" + etapa + "-" + (postPedido || "") + "-" + (pedido.get("d") || "");
+const jaRespondeu = (etapa) => { try { return localStorage.getItem(marcaResp(etapa)); } catch (e) { return null; } };
 
-async function responder(etapa) {
-  const caixa = $("etapa");
-  const p = DADOS.posts[iPedido];
-  const chaveResp = "resposta-" + DADOS.clienteId + "-" + DADOS.mesId + "-" + etapa + "-" + (postPedido || "") + "-" + (pedido.get("d") || "");
-  const pronto = etapa === "zero"
-    ? "<h2>Combinado!</h2><p>Vamos refazer o post de " + nome(p) + " do zero, com outra ideia. Ele volta pra você aprovar.</p>"
-    : "<h2>Combinado!</h2><p>Os outros posts ficam como estão.</p>";
+function telaResposta(html) {
   document.querySelector(".guia").style.display = "none";
   $("gravador").style.display = "none";
-  caixa.style.display = "block";
-  let ja = null;
-  try { ja = localStorage.getItem(chaveResp); } catch (e) {}
-  if (ja) { caixa.innerHTML = pronto + "<p>Pode fechar esta página.</p>"; return; }
-  caixa.innerHTML = "<h2>Enviando...</h2><p>Só um instante.</p>";
+  $("etapa").style.display = "block";
+  $("etapa").innerHTML = html;
+}
+
+// manda a resposta pro Worker; devolve true se chegou (ou já tinha chegado antes)
+async function mandarResposta(etapa) {
+  if (jaRespondeu(etapa)) return true;
   const form = new FormData();
   form.append("cliente", DADOS.clienteId);
   form.append("mes", DADOS.mesId);
   form.append("chave", DADOS.chave);
   form.append("etapa", etapa);
   if (etapa === "zero") form.append("post", postPedido);
-  try {
-    const r = await fetch(DADOS.caixa + "/confirmar", { method: "POST", body: form });
-    if (!r.ok) throw new Error("código " + r.status);
-    try { localStorage.setItem(chaveResp, String(Date.now())); } catch (e) {}
-    caixa.innerHTML = pronto + "<p>Pode fechar esta página.</p>";
-  } catch (e) {
-    caixa.innerHTML = "<h2>Não foi</h2><p>Não chegou (" + (e.message || e) + "). Confira a internet e tente de novo.</p>" +
-      '<button class="botao" id="denovo-resp">Tentar de novo</button>';
-    $("denovo-resp").onclick = () => responder(etapa);
+  const r = await fetch(DADOS.caixa + "/confirmar", { method: "POST", body: form });
+  if (!r.ok) throw new Error("código " + r.status);
+  try { localStorage.setItem(marcaResp(etapa), String(Date.now())); } catch (e) {}
+  return true;
+}
+
+function falhou(e, deNovo) {
+  telaResposta("<h2>Não foi</h2><p>Não chegou (" + (e.message || e) + "). Confira a internet e tente de novo.</p>" +
+    '<button class="botao" id="denovo-resp">Tentar de novo</button>');
+  $("denovo-resp").onclick = deNovo;
+}
+
+const FECHOU = "<h2>Combinado!</h2><p>Te avisamos no grupo quando o post novo ficar pronto. Pode fechar esta página.</p>";
+
+async function pedirZero() {
+  const p = DADOS.posts[iPedido];
+  telaResposta("<h2>Enviando...</h2><p>Só um instante.</p>");
+  try { await mandarResposta("zero"); } catch (e) { falhou(e, pedirZero); return; }
+  const perguntaOutros = pedido.get("fim") === "0" && pedido.get("ultimo") === "1";
+  if (!perguntaOutros) {
+    telaResposta("<h2>Combinado!</h2><p>Vamos refazer o post de " + nome(p) + " do zero, com outra ideia. " +
+      "Ele volta pra você aprovar. Pode fechar esta página.</p>");
+    return;
   }
+  if (jaRespondeu("outros")) { telaResposta(FECHOU); return; }
+  telaResposta("<h2>Combinado!</h2><p>Vamos refazer o post de " + nome(p) + " do zero, com outra ideia.</p>" +
+    "<p><b>E os outros posts, estão certos?</b></p>" +
+    '<div class="acoes"><button class="botao" id="outros-sim">Sim, estão certos</button>' +
+    '<button class="botao secundario" id="outros-nao">Quero mudar outro</button></div>');
+  $("outros-sim").onclick = outrosCertos;
+  $("outros-nao").onclick = () => {
+    $("etapa").innerHTML = "<h2>Sem problema</h2><p>Aperte Gravar lá embaixo, vá passando os posts e fale o que quer mudar.</p>";
+    document.querySelector(".guia").style.display = "";
+    $("gravador").style.display = "";
+  };
+}
+
+async function outrosCertos() {
+  $("outros-sim").disabled = true;
+  $("outros-sim").textContent = "Enviando...";
+  try { await mandarResposta("outros"); } catch (e) { falhou(e, pedirZero); return; }
+  telaResposta(FECHOU);
 }
 
 if (acao === "sobre" && iPedido >= 0) {
@@ -555,9 +585,7 @@ if (acao === "sobre" && iPedido >= 0) {
   document.querySelector(".lembrete").textContent = "Fale o que quer mudar neste post e toque pra enviar.";
   abrirVisor(iPedido);
 } else if (acao === "zero" && iPedido >= 0) {
-  responder("zero");
-} else if (acao === "outros") {
-  responder("outros");
+  pedirZero();
 }
 
 $("botao").onclick = () => (gravacao ? parar() : comecar());
