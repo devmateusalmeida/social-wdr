@@ -23,11 +23,6 @@
       "visto": "2026-11-18T13:25:17.690423-03:00",
       "texto": "teste-aloe: William pediu ajuste no post de quarta, 18/11: quero o fundo amarelo",
       "avisado": "2026-11-18T13:25:17.690423-03:00"
-    },
-    "telegram-info": {
-      "tipo": "passageiro",
-      "visto": "2026-11-19T11:20:12.872486-03:00",
-      "texto": "Telegram: não consegui perguntar se a entrega na caixa está ok (sem conexão com o Telegram: <urlopen error [Errno 104] Connection reset by peer>)"
     }
   }
 }
