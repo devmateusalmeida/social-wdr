@@ -24,6 +24,11 @@ const REPOSITORIO = "devmateusalmeida/social-wdr"; // trocar quando passar pra c
 const GUARDAR_LIDAS = 24 * 3600; // segundos: o descobrir ainda vê o que o robô já leu
 const AVISAR = [1874038076]; // quem recebe o áudio do mês no privado (ensaio: só o Mateus)
 const AUDIO_MAX = 20 * 1024 * 1024; // o Telegram só deixa o bot baixar até 20 MB
+// Quem aprova cada cliente (o mesmo aprovacao.json do robô), lido pelo cliqueDoMes (21/11). Só funciona
+// com o repositório público: quando ficar privado, os botões mz/mo respondem "tenta de novo" até a lista
+// passar pra uma variável do Worker ou pra VPS.
+const CONFIG = `https://raw.githubusercontent.com/${REPOSITORIO}/main/aprovacao.json`;
+const PC_SEM_SINAL = 10 * 60; // segundos: a vigia do PC bate em /vivo a cada 2 min
 
 export default {
   async fetch(pedido, env, ctx) {
@@ -36,6 +41,7 @@ export default {
       if (pedido.method === "GET" && url.pathname === "/respostas") return await listarRespostas(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/respostas/lido") return await respostaLida(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/audios/lido") return await audioLido(pedido, env);
+      if (pedido.method === "POST" && url.pathname === "/vivo") return await sinalDoPc(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/telegram") return await doTelegram(pedido, env, ctx);
       if (pedido.method === "GET" && url.pathname === "/caixa") return await abrirCaixa(pedido, env, url);
       if (pedido.method === "POST" && url.pathname === "/lido") return await marcarLido(pedido, env);
@@ -182,7 +188,8 @@ async function receberAudio(pedido, env) {
   }
   const tipo = audio.type || "audio/webm";
   const ext = tipo.includes("mp4") ? "m4a" : tipo.includes("ogg") ? "ogg" : "webm";
-  const texto = `Áudio do mês: ${cliente}, ${mes} (${mmss(duracao)})\n\n` + linhas.join("\n");
+  const aviso = await avisoDoPc(env).catch(() => "");
+  const texto = aviso + `Áudio do mês: ${cliente}, ${mes} (${mmss(duracao)})\n\n` + linhas.join("\n");
 
   let arquivo = "";
   for (const chat of AVISAR) {
@@ -306,6 +313,33 @@ async function cliqueDoMes(clique, env) {
   const etapa = tipo === "mz" ? "zero" : "outros";
   const origem = msg.chat.id + ":" + msg.message_id;
 
+  // só vale clique de quem aprova esse cliente, no grupo dele (ou no privado de AVISAR, no ensaio),
+  // igual ao Aprovar do robô (21/11). Sem conseguir ler a lista, não grava nada e pede pra tentar de novo.
+  let cfg;
+  try {
+    const r = await fetch(CONFIG, { cf: { cacheTtl: 60 } });
+    if (!r.ok) throw new Error("status " + r.status);
+    cfg = (await r.json())[cliente];
+  } catch (e) {
+    console.log("não li o aprovacao.json: " + e);
+    return responder("Não consegui conferir agora. Tenta de novo em 1 minuto.");
+  }
+  const quem = String((clique.from || {}).id || "");
+  const lugarCerto = cfg && (msg.chat.id === cfg.grupo || AVISAR.includes(msg.chat.id));
+  // aprovadores hoje é {número: nome}; o lembrete de 07/11 tira os nomes (lista ou nome vazio): vale qualquer um
+  const ap = cfg ? cfg.aprovadores : null;
+  const aprova = Array.isArray(ap) ? ap.map(String).includes(quem) : !!ap && Object.prototype.hasOwnProperty.call(ap, quem);
+  if (!lugarCerto || !aprova) {
+    const nome = (clique.from || {}).first_name || "Alguém";
+    const botao = tipo === "mz" ? "Faz outro do zero" : "Sim, estão certos";
+    for (const chat of AVISAR) {
+      await telegram(env, "sendMessage", { chat_id: chat,
+        text: `${cliente} (${mes}): ${nome} (${quem}) clicou em ${botao}, mas não está na lista de aprovadores desse cliente ` +
+          `(ou o botão estava fora do grupo dele). Não valeu.` });
+    }
+    return responder("Só quem está na lista de aprovadores pode clicar aqui.");
+  }
+
   // clique duplo antes de a mensagem mudar: registra uma vez só
   await prepararRespostas(env);
   const ja = await env.BANCO.prepare("SELECT id FROM respostas WHERE origem = ? AND etapa = ? AND IFNULL(post, '') = ?")
@@ -314,9 +348,10 @@ async function cliqueDoMes(clique, env) {
     await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa, post, origem) VALUES (?, ?, ?, ?, ?, ?)")
       .bind(agora(), cliente, mes, etapa, post || null, origem).run();
     const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+    const aviso = await avisoDoPc(env).catch(() => "");
     for (const chat of AVISAR) {
       await telegram(env, "sendMessage", { chat_id: chat,
-        text: `${cliente} (${mes}): o cliente ${ETAPAS[etapa]}${post ? " pro post " + post : ""}, em ${hora} (botão do grupo).` });
+        text: aviso + `${cliente} (${mes}): o cliente ${ETAPAS[etapa]}${post ? " pro post " + post : ""}, em ${hora} (botão do grupo).` });
     }
   }
 
@@ -347,6 +382,30 @@ async function cliqueDoMes(clique, env) {
       reply_markup: { inline_keyboard: botoes } });
   }
   return responder(tipo === "mz" ? "Combinado! Vamos refazer esse post do zero." : "Combinado! Os outros ficam como estão.");
+}
+
+// ---------- Sinal de vida do PC (21/11) ----------
+// A vigia do PC (audio_mes.py --vigia) bate em /vivo a cada 2 min. Áudio ou botão que chega com o PC sem
+// sinal há mais de 10 min vai pro privado com o aviso na frente: senão o cliente vê "Recebido!" e nada
+// acontece, e ninguém fica sabendo.
+async function sinalDoPc(pedido, env) {
+  if (!autorizado(pedido, env)) return new Response("não", { status: 401 });
+  await prepararSinais(env);
+  await env.BANCO.prepare("INSERT OR REPLACE INTO sinais (nome, quando) VALUES ('pc', ?)").bind(agora()).run();
+  return Response.json({ ok: true });
+}
+
+async function prepararSinais(env) {
+  await env.BANCO.prepare("CREATE TABLE IF NOT EXISTS sinais (nome TEXT PRIMARY KEY, quando INTEGER NOT NULL)").run();
+}
+
+async function avisoDoPc(env) {
+  await prepararSinais(env);
+  const r = await env.BANCO.prepare("SELECT quando FROM sinais WHERE nome = 'pc'").first();
+  if (r && agora() - r.quando <= PC_SEM_SINAL) return "";
+  const desde = r ? " desde " + new Date(r.quando * 1000).toLocaleString("pt-BR",
+    { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : " (a vigia nunca bateu aqui)";
+  return `ATENÇÃO: o PC não dá sinal${desde}. Vigia parada ou PC desligado: isto fica esperando até ela voltar.\n\n`;
 }
 
 async function telegram(env, metodo, corpo) {
