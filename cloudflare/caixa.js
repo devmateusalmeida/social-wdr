@@ -19,6 +19,11 @@
 //                    e daqui ele vai pro privado de quem está em AVISAR.
 // O "Recebido" do clique vai dentro da resposta ao Telegram, e o webhook é
 // ligado do PC (python sistema/telegram.py caixa ligar).
+//
+// Fluxo novo (22/11): o cliente sai do Telegram. Tabela meses (cria sozinha) com a etapa de cada cliente
+// e mês; a página pergunta em GET /estado e o PC grava em POST /estado. Chave da página no fim do link
+// (#c= cliente, #w= William). Teste: node sistema/teste_caixa_mes.mjs (MazyOS) e
+// python sistema/teste_fluxo_novo.py (ponta a ponta com a página).
 
 const REPOSITORIO = "devmateusalmeida/social-wdr"; // trocar quando passar pra conta da WDR
 const GUARDAR_LIDAS = 24 * 3600; // segundos: o descobrir ainda vê o que o robô já leu
@@ -34,7 +39,9 @@ export default {
   async fetch(pedido, env, ctx) {
     const url = new URL(pedido.url);
     try {
-      if (pedido.method === "OPTIONS" && (url.pathname === "/audio" || url.pathname === "/confirmar")) return new Response(null, { status: 204, headers: CORS });
+      if (pedido.method === "OPTIONS" && ["/audio", "/confirmar", "/estado"].includes(url.pathname)) return new Response(null, { status: 204, headers: CORS });
+      if (pedido.method === "GET" && url.pathname === "/estado") return await estadoDoMes(pedido, env, url);
+      if (pedido.method === "POST" && url.pathname === "/estado") return await gravarEstado(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/confirmar") return await receberConfirmacao(pedido, env);
       if (pedido.method === "POST" && url.pathname === "/audio") return await receberAudio(pedido, env);
       if (pedido.method === "GET" && url.pathname === "/audios") return await listarAudios(pedido, env);
@@ -148,7 +155,7 @@ function agora() {
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -156,12 +163,17 @@ function respostaPagina(corpo, status = 200) {
   return new Response(JSON.stringify(corpo), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
 
-async function chaveDaPagina(env, cliente, mes) {
+// papel "c" (cliente): HMAC de "cliente|mes", igual desde 18/11. Papel "w" (William, fluxo novo de 22/11):
+// HMAC de "cliente|mes|w", outra chave, então o link do cliente não serve pra revisão do William.
+async function chaveDaPagina(env, cliente, mes, papel = "c") {
   const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.CHAVE_CAIXA),
     { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const assinatura = await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(cliente + "|" + mes));
+  const texto = cliente + "|" + mes + (papel === "w" ? "|w" : "");
+  const assinatura = await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(texto));
   return [...new Uint8Array(assinatura)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
+
+const papelDe = (v) => (String(v || "c") === "w" ? "w" : "c");
 
 const mmss = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
 
@@ -169,8 +181,13 @@ async function receberAudio(pedido, env) {
   const form = await pedido.formData();
   const cliente = String(form.get("cliente") || "");
   const mes = String(form.get("mes") || "");
+  const papel = papelDe(form.get("papel"));
   if (!/^[a-z0-9-]{1,40}$/.test(cliente) || !/^\d{4}-\d{2}$/.test(mes)) return respostaPagina({ erro: "pedido errado" }, 400);
-  if (!confere(String(form.get("chave") || ""), await chaveDaPagina(env, cliente, mes))) return respostaPagina({ erro: "não" }, 401);
+  if (!confere(String(form.get("chave") || ""), await chaveDaPagina(env, cliente, mes, papel))) return respostaPagina({ erro: "não" }, 401);
+  // fluxo novo (22/11): mês aberto pelo mes.py. Sem linha em meses é a página antiga do aloe (18/11), que segue igual.
+  const m = await lerMes(env, cliente, mes);
+  if (!m && papel === "w") return respostaPagina({ erro: "mês não aberto" }, 404);
+  if (m && !podeAgir(m, papel)) return respostaPagina({ erro: "fora de hora", estado: publico(m, papel) }, 409);
   const audio = form.get("audio");
   if (!audio || typeof audio === "string" || !audio.size) return respostaPagina({ erro: "sem áudio" }, 400);
   if (audio.size > AUDIO_MAX) return respostaPagina({ erro: "áudio grande demais" }, 413);
@@ -189,7 +206,8 @@ async function receberAudio(pedido, env) {
   const tipo = audio.type || "audio/webm";
   const ext = tipo.includes("mp4") ? "m4a" : tipo.includes("ogg") ? "ogg" : "webm";
   const aviso = await avisoDoPc(env).catch(() => "");
-  const texto = aviso + `Áudio do mês: ${cliente}, ${mes} (${mmss(duracao)})\n\n` + linhas.join("\n");
+  const quem = m ? (papel === "w" ? " (do William)" : " (do cliente)") : "";
+  const texto = aviso + `Áudio do mês${quem}: ${cliente}, ${mes} (${mmss(duracao)})\n\n` + linhas.join("\n");
 
   let arquivo = "";
   for (const chat of AVISAR) {
@@ -207,9 +225,16 @@ async function receberAudio(pedido, env) {
   }
 
   await prepararAudios(env);
-  await env.BANCO.prepare("INSERT INTO audios (recebido, cliente, mes, duracao, marcas, arquivo, tipo) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .bind(agora(), cliente, mes, duracao, JSON.stringify(marcas), arquivo, tipo).run();
-  return respostaPagina({ ok: true });
+  const novo = await env.BANCO.prepare("INSERT INTO audios (recebido, cliente, mes, duracao, marcas, arquivo, tipo, papel) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(agora(), cliente, mes, duracao, JSON.stringify(marcas), arquivo, tipo, papel).run();
+  if (!m) return respostaPagina({ ok: true });
+  // a página passa a mostrar "Ouvindo seu áudio..." até o PC gravar a lista ou a pergunta.
+  // anterior: o PC precisa saber se a lista desta rodada ainda estava aberta (áudio novo soma com ela).
+  const rodada = Number((novo.meta || {}).last_row_id) || m.rodada + 1;
+  const campos = { etapa: "ouvindo", rodada, anterior: m.etapa === "ouvindo" ? m.anterior : { etapa: m.etapa, rodada: m.rodada } };
+  if (m.fase === "fechado") Object.assign(campos, { fase: "cliente", fechado_em: null });
+  await gravarMes(env, cliente, mes, campos);
+  return respostaPagina({ ok: true, estado: publico(await lerMes(env, cliente, mes), papel) });
 }
 
 // Cliente confirma na página: etapa "lista" (o Entendi assim está certo) ou
@@ -226,11 +251,15 @@ async function receberConfirmacao(pedido, env) {
   const cliente = String(form.get("cliente") || "");
   const mes = String(form.get("mes") || "");
   const etapa = String(form.get("etapa") || "");
-  if (!/^[a-z0-9-]{1,40}$/.test(cliente) || !/^\d{4}-\d{2}$/.test(mes) || !ETAPAS[etapa]) return respostaPagina({ erro: "pedido errado" }, 400);
-  if (!confere(String(form.get("chave") || ""), await chaveDaPagina(env, cliente, mes))) return respostaPagina({ erro: "não" }, 401);
+  const papel = papelDe(form.get("papel"));
+  if (!/^[a-z0-9-]{1,40}$/.test(cliente) || !/^\d{4}-\d{2}$/.test(mes) || !(ETAPAS[etapa] || etapa === "liberar")) return respostaPagina({ erro: "pedido errado" }, 400);
+  if (!confere(String(form.get("chave") || ""), await chaveDaPagina(env, cliente, mes, papel))) return respostaPagina({ erro: "não" }, 401);
   const post = String(form.get("post") || "");
   if (post && !/^\d{4}-\d{2}-\d{2}$/.test(post)) return respostaPagina({ erro: "pedido errado" }, 400);
   if (etapa === "zero" && !post) return respostaPagina({ erro: "pedido errado" }, 400);
+  const m = await lerMes(env, cliente, mes);
+  if (m) return await confirmarNoMes(env, m, papel, etapa, post, Number(form.get("rodada")));
+  if (papel === "w" || etapa === "liberar") return respostaPagina({ erro: "mês não aberto" }, 404);
   const hora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
   const texto = `${cliente} (${mes}): o cliente ${ETAPAS[etapa]}${post ? " pro post " + post : ""}, em ${hora}.`;
   for (const chat of AVISAR) {
@@ -251,7 +280,7 @@ async function listarAudios(pedido, env) {
   if (!autorizado(pedido, env)) return new Response("não", { status: 401 });
   await prepararAudios(env);
   const { results } = await env.BANCO.prepare(
-    "SELECT id, recebido, cliente, mes, duracao, marcas, arquivo, tipo FROM audios WHERE lido = 0 ORDER BY id LIMIT 20").all();
+    "SELECT id, recebido, cliente, mes, duracao, marcas, arquivo, tipo, papel FROM audios WHERE lido = 0 ORDER BY id LIMIT 20").all();
   return Response.json(results.map((r) => ({ ...r, marcas: JSON.parse(r.marcas) })));
 }
 
@@ -268,6 +297,8 @@ async function prepararAudios(env) {
   await env.BANCO.prepare("CREATE TABLE IF NOT EXISTS audios (id INTEGER PRIMARY KEY AUTOINCREMENT, recebido INTEGER NOT NULL, " +
     "cliente TEXT NOT NULL, mes TEXT NOT NULL, duracao REAL, marcas TEXT NOT NULL, arquivo TEXT NOT NULL, tipo TEXT, " +
     "lido INTEGER NOT NULL DEFAULT 0)").run();
+  // papel (22/11): quem gravou, "c" cliente ou "w" William. Acrescenta uma vez (dá erro se já existe).
+  try { await env.BANCO.prepare("ALTER TABLE audios ADD COLUMN papel TEXT NOT NULL DEFAULT 'c'").run(); } catch (e) { /* já existe */ }
 }
 
 // Respostas da página (confirmações e botões da pergunta) que o script do PC ainda não leu.
@@ -382,6 +413,206 @@ async function cliqueDoMes(clique, env) {
       reply_markup: { inline_keyboard: botoes } });
   }
   return responder(tipo === "mz" ? "Combinado! Vamos refazer esse post do zero." : "Combinado! Os outros ficam como estão.");
+}
+
+// ---------- Mês no fluxo novo (22/11) ----------
+// O cliente sai do Telegram. O mes.py (PC) abre o mês na fase "william" (ele revisa pelo link com #w=),
+// depois vem "cliente" (o William manda o link com #c= pelo WhatsApp) e "fechado" (aprovado). A etapa de cada
+// cliente e mês fica aqui: a página pergunta a cada poucos segundos e mostra; o PC (audio_mes.py, mes.py) grava.
+// Etapas: gravar, ouvindo (áudio chegou), pergunta (fala vaga), processando (respondeu a pergunta, o PC
+// decide), lista (Entendi assim), ajustando (Mateus refazendo), versoes (Ajustes prontos), fechado.
+const CAMPOS_MES = ["fase", "etapa", "rodada", "ajustes", "vagos", "frase", "outros", "trocas", "antes", "anterior",
+  "nome", "mes_nome", "william", "whatsapp", "link_william", "fechado_em", "total"];
+const JSON_MES = { ajustes: "[]", vagos: "[]", trocas: "{}", antes: "{}", anterior: "{}" };
+const FASES = ["william", "cliente", "fechado"];
+const ETAPAS_MES = ["gravar", "ouvindo", "pergunta", "processando", "lista", "ajustando", "versoes", "fechado"];
+const QUEM = { c: "o cliente", w: "o William" };
+
+async function prepararMeses(env) {
+  await env.BANCO.prepare("CREATE TABLE IF NOT EXISTS meses (cliente TEXT NOT NULL, mes TEXT NOT NULL, " +
+    "fase TEXT NOT NULL DEFAULT 'william', etapa TEXT NOT NULL DEFAULT 'gravar', rodada INTEGER NOT NULL DEFAULT 0, " +
+    "ajustes TEXT NOT NULL DEFAULT '[]', vagos TEXT NOT NULL DEFAULT '[]', frase INTEGER NOT NULL DEFAULT 0, " +
+    "outros INTEGER NOT NULL DEFAULT 0, trocas TEXT NOT NULL DEFAULT '{}', antes TEXT NOT NULL DEFAULT '{}', " +
+    "anterior TEXT NOT NULL DEFAULT '{}', nome TEXT, mes_nome TEXT, william TEXT, whatsapp TEXT, link_william TEXT, " +
+    "fechado_em INTEGER, total INTEGER, atualizado INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (cliente, mes))").run();
+}
+
+async function lerMes(env, cliente, mes) {
+  await prepararMeses(env);
+  const r = await env.BANCO.prepare("SELECT * FROM meses WHERE cliente = ? AND mes = ?").bind(cliente, mes).first();
+  if (!r) return null;
+  for (const [k, vazio] of Object.entries(JSON_MES)) {
+    try { r[k] = JSON.parse(r[k] || vazio); } catch (e) { r[k] = JSON.parse(vazio); }
+  }
+  return r;
+}
+
+// se = {etapa, rodada}: só grava se o mês ainda está ali (toque duplo, PC e página ao mesmo tempo). Devolve se gravou.
+async function gravarMes(env, cliente, mes, campos, se = null) {
+  await prepararMeses(env);
+  await env.BANCO.prepare("INSERT OR IGNORE INTO meses (cliente, mes) VALUES (?, ?)").bind(cliente, mes).run();
+  const nomes = Object.keys(campos).filter((k) => CAMPOS_MES.includes(k));
+  const valores = nomes.map((k) => {
+    const v = campos[k];
+    if (k in JSON_MES) return JSON.stringify(v ?? JSON.parse(JSON_MES[k]));
+    return typeof v === "boolean" ? (v ? 1 : 0) : v ?? null;
+  });
+  let sql = "UPDATE meses SET " + nomes.map((n) => n + " = ?").concat(["atualizado = ?"]).join(", ") + " WHERE cliente = ? AND mes = ?";
+  const args = [...valores, agora(), cliente, mes];
+  if (se) { sql += " AND etapa = ? AND rodada = ?"; args.push(se.etapa, se.rodada); }
+  const r = await env.BANCO.prepare(sql).bind(...args).run();
+  return ((r.meta || {}).changes ?? 1) > 0;
+}
+
+function podeAgir(m, papel) {
+  return papel === "w" ? m.fase === "william" : m.fase === "cliente" || m.fase === "fechado";
+}
+
+// o que a página vê. O cliente não vê nada enquanto o William revisa; o número do cliente só vai pro William.
+function publico(m, papel) {
+  if (!m) return { fase: "sem" };
+  if (papel === "c" && m.fase === "william") return { fase: "preparando", etapa: "preparando", rodada: 0, mes_nome: m.mes_nome };
+  const e = { fase: m.fase, etapa: m.etapa, rodada: m.rodada, ajustes: m.ajustes, vagos: m.vagos, frase: !!m.frase,
+    outros: !!m.outros, trocas: m.trocas, antes: m.antes, fechado_em: m.fechado_em, atualizado: m.atualizado,
+    nome: m.nome, mes_nome: m.mes_nome, total: m.total };
+  if (papel === "w") e.whatsapp = m.whatsapp || "";
+  return e;
+}
+
+const validoMes = (cliente, mes) => /^[a-z0-9-]{1,40}$/.test(cliente) && /^\d{4}-\d{2}$/.test(mes);
+
+// GET /estado: a página (chave do papel) ou o PC (Authorization) pergunta em que etapa o mês está.
+async function estadoDoMes(pedido, env, url) {
+  const cliente = url.searchParams.get("cliente") || "";
+  const mes = url.searchParams.get("mes") || "";
+  if (!validoMes(cliente, mes)) return respostaPagina({ erro: "pedido errado" }, 400);
+  if (autorizado(pedido, env)) return Response.json(await lerMes(env, cliente, mes));
+  const papel = papelDe(url.searchParams.get("papel"));
+  if (!confere(url.searchParams.get("chave") || "", await chaveDaPagina(env, cliente, mes, papel))) return respostaPagina({ erro: "não" }, 401);
+  const m = await lerMes(env, cliente, mes);
+  return m ? respostaPagina(publico(m, papel)) : respostaPagina({ fase: "sem" }, 404);
+}
+
+// POST /estado (só o PC): {cliente, mes, ...campos, se?: {etapa, rodada}, apagar?: true}
+async function gravarEstado(pedido, env) {
+  if (!autorizado(pedido, env)) return new Response("não", { status: 401 });
+  const c = await pedido.json();
+  if (!validoMes(c.cliente || "", c.mes || "")) return new Response("pedido errado", { status: 400 });
+  if ((c.fase && !FASES.includes(c.fase)) || (c.etapa && !ETAPAS_MES.includes(c.etapa))) return new Response("fase ou etapa errada", { status: 400 });
+  if (c.apagar) {
+    await prepararMeses(env);
+    await env.BANCO.prepare("DELETE FROM meses WHERE cliente = ? AND mes = ?").bind(c.cliente, c.mes).run();
+    return Response.json({ ok: true });
+  }
+  const gravou = await gravarMes(env, c.cliente, c.mes, c, c.se || null);
+  return Response.json({ ok: gravou, estado: await lerMes(env, c.cliente, c.mes) });
+}
+
+function horaBR() {
+  return new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+}
+
+// toques na página: lista (Tá certo), final (Ficou tudo certo), liberar (Está tudo certo sem gravar), zero e outros
+// (pergunta da fala vaga). Toque repetido ou de aba velha devolve o estado de agora, sem gravar de novo.
+async function confirmarNoMes(env, m, papel, etapa, post, rodada) {
+  const mudou = (atual) => respostaPagina({ erro: "a página mudou", estado: publico(atual, papel) }, 409);
+  const voltar = async (extra = {}) => respostaPagina({ ok: true, ...extra, estado: publico(await lerMes(env, m.cliente, m.mes), papel) });
+  if (!podeAgir(m, papel)) return mudou(m);
+  const hora = horaBR();
+  const titulo = `${m.nome || m.cliente} (${m.mes_nome || m.mes})`;
+  const se = { etapa: m.etapa, rodada: m.rodada };
+
+  if (etapa === "lista") {
+    if (m.etapa === "ajustando" && m.rodada === rodada) return voltar({ ja: true });
+    if (m.etapa !== "lista" || m.rodada !== rodada) return mudou(m);
+    if (!(await gravarMes(env, m.cliente, m.mes, { etapa: "ajustando" }, se))) return mudou(await lerMes(env, m.cliente, m.mes));
+    await registrar(env, m, etapa, null, papel);
+    await avisar(env, m, papel, `${titulo}: ${QUEM[papel]} confirmou a lista de ajustes, em ${hora}.` +
+      (papel === "c" ? " O Mateus já vai refazer." : ""));
+    return voltar();
+  }
+
+  if (etapa === "final" || etapa === "liberar") {
+    if (papel === "c" && m.fase === "fechado" && m.etapa === "fechado") return voltar({ ja: true });
+    const de = etapa === "final" ? "versoes" : "gravar";
+    if (m.etapa !== de || (etapa === "final" && m.rodada !== rodada)) return mudou(m);
+    // o que o William aprovou vira o mês do cliente: some o "versão nova" e a rodada dele
+    const campos = papel === "w"
+      ? { fase: "cliente", etapa: "gravar", ajustes: [], vagos: [], antes: {}, frase: 0, outros: 0, anterior: {} }
+      : { fase: "fechado", etapa: "fechado", vagos: [], antes: {}, fechado_em: agora() };
+    if (!(await gravarMes(env, m.cliente, m.mes, campos, se))) return mudou(await lerMes(env, m.cliente, m.mes));
+    await registrar(env, m, etapa, null, papel);
+    if (papel === "c") {
+      await avisar(env, m, papel, `${titulo}: aprovado pelo cliente em ${hora}.` + (m.total ? ` Os ${m.total} posts estão liberados.` : ""));
+      return voltar();
+    }
+    const foi = await mandarWhatsapp(env, m, `${titulo} liberado. Toque no botão pra mandar o link pro cliente no WhatsApp ` +
+      "(dá pra mudar o texto antes de enviar).");
+    await avisar(env, m, "w", `${titulo}: o William liberou pro cliente em ${hora}.` +
+      (foi ? "" : " O botão do WhatsApp não chegou nele: ver a mensagem acima."));
+    return voltar({ whatsapp: foi });
+  }
+
+  if (etapa === "zero" || etapa === "outros") {
+    if (m.etapa === "processando") return voltar({ ja: true });
+    if (m.etapa !== "pergunta") return mudou(m);
+    if (etapa === "zero") {
+      const v = m.vagos.find((x) => x.post === post);
+      if (!v) return respostaPagina({ erro: "post errado" }, 400);
+      if (v.resposta) return voltar({ ja: true });
+    } else if (m.outros) return voltar({ ja: true });
+    const vagos = m.vagos.map((v) => (etapa === "zero" && v.post === post ? { ...v, resposta: "zero" } : v));
+    const outros = etapa === "outros" ? 1 : m.outros;
+    const campos = { vagos, outros };
+    if (vagos.every((v) => v.resposta) && (m.frase || outros)) campos.etapa = "processando";
+    if (!(await gravarMes(env, m.cliente, m.mes, campos, se))) return mudou(await lerMes(env, m.cliente, m.mes));
+    await registrar(env, m, etapa, post || null, papel);
+    await avisar(env, m, papel, `${titulo}: ${QUEM[papel]} ${ETAPAS[etapa]}${post ? " pro post " + post : ""}, em ${hora}.`, true);
+    return voltar();
+  }
+  return respostaPagina({ erro: "pedido errado" }, 400);
+}
+
+// guarda em respostas: o audio_mes.py lê zero e outros (fala vaga); o resto fica de registro
+async function registrar(env, m, etapa, post, papel) {
+  await prepararRespostas(env);
+  await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa, post, origem) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(agora(), m.cliente, m.mes, etapa, post, "pagina-" + papel).run();
+}
+
+// privado do Mateus (AVISAR) sempre; o William também quando foi o cliente que agiu. pc = depende da vigia do PC.
+// Falha do Telegram não desfaz o que o cliente fez: fica no log.
+async function avisar(env, m, papel, texto, pc = false) {
+  const aviso = pc ? await avisoDoPc(env).catch(() => "") : "";
+  const chats = [...AVISAR];
+  const william = Number(m.william);
+  if (papel === "c" && william && !chats.includes(william)) chats.push(william);
+  for (const chat of chats) {
+    try {
+      await telegram(env, "sendMessage", { chat_id: chat, text: (AVISAR.includes(chat) ? aviso : "") + texto });
+    } catch (e) { console.log("aviso não foi: " + e); }
+  }
+}
+
+// botão "Mandar no WhatsApp" (wa.me com o número do cliente e o texto com o link) no privado do William.
+// Não chegou (ele nunca abriu o bot no privado, Telegram fora): vai pro Mateus repassar.
+async function mandarWhatsapp(env, m, texto) {
+  if (!m.whatsapp) {
+    await avisar(env, m, "w", `${m.nome || m.cliente}: sem o link do WhatsApp do cliente no mês. Rodar o mes.py whatsapp.`);
+    return false;
+  }
+  const botao = { inline_keyboard: [[{ text: "Mandar no WhatsApp", url: m.whatsapp }]] };
+  const chat = Number(m.william) || AVISAR[0];
+  let j = { ok: false, description: "sem resposta" };
+  try { j = await telegram(env, "sendMessage", { chat_id: chat, text: texto, reply_markup: botao }); } catch (e) { j.description = String(e); }
+  if (j.ok) return true;
+  for (const a of AVISAR) {
+    try {
+      await telegram(env, "sendMessage", { chat_id: a, reply_markup: botao,
+        text: `Não consegui mandar o botão do WhatsApp pro William (${String(j.description || "").slice(0, 120)}). Repassa pra ele:\n\n` + texto });
+    } catch (e) { console.log("nem pro Mateus: " + e); }
+  }
+  return false;
 }
 
 // ---------- Sinal de vida do PC (21/11) ----------
