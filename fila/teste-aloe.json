@@ -318,7 +318,7 @@
       "quando": "2026-11-22T12:00:00-03:00",
       "imagem": "https://devmateusalmeida.github.io/social-wdr/imagens/teste-aloe/story-2026-11-22-v3.jpg",
       "legenda": "",
-      "situacao": "publicando",
+      "situacao": "publicado",
       "tentativas": 0,
       "origem": "clientes/teste-aloe/lotes/semana-2026-11-16/story-11-22.jpg",
       "enviado_em": "2026-11-18T12:36:32.510557-03:00",
@@ -333,7 +333,9 @@
       "mensagem": 124,
       "aprovado_por": "Mateus",
       "aprovado_em": "2026-11-18T12:40:40.595935-03:00",
-      "caixa": "18088192796534742"
+      "caixa": "18088192796534742",
+      "instagram_id": "18083115494546786",
+      "publicado_em": "2026-11-22T12:00:45.436509-03:00"
     }
   ]
 }
