@@ -214,14 +214,15 @@ const N = DADOS.posts.length;
 $("cliente").textContent = W ? "Revisão antes do cliente · " + DADOS.cliente : DADOS.cliente;
 $("titulo").textContent = "Posts de " + MES;
 document.title = DADOS.cliente + ": " + MES;
-const LEMBRETE = 'Vá passando os posts e falando. No fim, diga: "o restante está tudo certo".';
+const LEMBRETE = "Vá passando os posts e fale de todos que quer mudar. O que você não comentar fica como está.";
 $("lembrete").textContent = LEMBRETE;
 $("aprovar").textContent = W ? "Tudo certo, liberar pro cliente" : "Está tudo certo";
 $("guia").innerHTML = (W
   ? "<p>Revisão antes de ir pro cliente. Se algo precisar mudar, aperte <b>Gravar</b>, vá passando os posts e fale, igual o cliente vai fazer.</p>"
   : "<p>Dá uma olhada nos posts. Se algo precisar mudar, aperte <b>Gravar</b>, vá passando os posts e fale.</p>") +
   "<p>Não precisa dizer qual post é: a gente sabe qual estava na sua tela.</p>" +
-  '<p>No fim, diga <b>"o restante está tudo certo"</b>.</p>' +
+  // 22/11 (Mateus): sem a frase do fim. O que não for comentado fica como está.
+  "<p>Fale de <b>todos os posts que quer mudar</b> de uma vez. Os que você não comentar, a gente entende que estão bons.</p>" +
   (W ? "<p>Se estiver tudo certo, toque em <b>Tudo certo, liberar pro cliente</b>: aparece o botão pra mandar o link no WhatsApp.</p>"
      : "<p>Se não precisar mudar nada, toque em <b>Está tudo certo</b>.</p>");
 
