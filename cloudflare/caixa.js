@@ -72,6 +72,7 @@ async function doTelegram(pedido, env, ctx) {
   // botões da pergunta do áudio do mês (mz| e mo|): resolvidos aqui, o robô nem fica sabendo
   const dadosClique = novidade.callback_query && String(novidade.callback_query.data || "");
   if (/^m[zo]\|/.test(dadosClique)) return await cliqueDoMes(novidade.callback_query, env);
+  if (/^rf\|/.test(dadosClique)) return await cliqueRefacao(novidade.callback_query, env);
   await preparar(env);
   // a mesma novidade entregue duas vezes fica uma só (o número é a chave)
   await env.BANCO.prepare("INSERT OR IGNORE INTO caixa (id, recebido, dados) VALUES (?, ?, ?)")
@@ -232,7 +233,6 @@ async function receberAudio(pedido, env) {
   // anterior: o PC precisa saber se a lista desta rodada ainda estava aberta (áudio novo soma com ela).
   const rodada = Number((novo.meta || {}).last_row_id) || m.rodada + 1;
   const campos = { etapa: "ouvindo", rodada, anterior: m.etapa === "ouvindo" ? m.anterior : { etapa: m.etapa, rodada: m.rodada } };
-  if (m.fase === "fechado") Object.assign(campos, { fase: "cliente", fechado_em: null });
   await gravarMes(env, cliente, mes, campos);
   return respostaPagina({ ok: true, estado: publico(await lerMes(env, cliente, mes), papel) });
 }
@@ -306,7 +306,7 @@ async function listarRespostas(pedido, env) {
   if (!autorizado(pedido, env)) return new Response("não", { status: 401 });
   await prepararRespostas(env);
   const { results } = await env.BANCO.prepare(
-    "SELECT id, recebido, cliente, mes, etapa, post FROM respostas WHERE lido = 0 ORDER BY id LIMIT 50").all();
+    "SELECT id, recebido, cliente, mes, etapa, post, origem FROM respostas WHERE lido = 0 ORDER BY id LIMIT 50").all();
   return Response.json(results);
 }
 
@@ -464,8 +464,9 @@ async function gravarMes(env, cliente, mes, campos, se = null) {
   return ((r.meta || {}).changes ?? 1) > 0;
 }
 
+// mês fechado não reabre (22/11, Mateus): depois do aprovado, ninguém grava nem toca mais
 function podeAgir(m, papel) {
-  return papel === "w" ? m.fase === "william" : m.fase === "cliente" || m.fase === "fechado";
+  return papel === "w" ? m.fase === "william" : m.fase === "cliente";
 }
 
 // o que a página vê. O cliente não vê nada enquanto o William revisa; o número do cliente só vai pro William.
@@ -517,6 +518,8 @@ function horaBR() {
 async function confirmarNoMes(env, m, papel, etapa, post, rodada) {
   const mudou = (atual) => respostaPagina({ erro: "a página mudou", estado: publico(atual, papel) }, 409);
   const voltar = async (extra = {}) => respostaPagina({ ok: true, ...extra, estado: publico(await lerMes(env, m.cliente, m.mes), papel) });
+  // toque repetido no aprovar depois de fechado: só devolve o estado
+  if (papel === "c" && m.fase === "fechado" && (etapa === "final" || etapa === "liberar")) return voltar({ ja: true });
   if (!podeAgir(m, papel)) return mudou(m);
   const hora = horaBR();
   const titulo = `${m.nome || m.cliente} (${m.mes_nome || m.mes})`;
@@ -533,7 +536,6 @@ async function confirmarNoMes(env, m, papel, etapa, post, rodada) {
   }
 
   if (etapa === "final" || etapa === "liberar") {
-    if (papel === "c" && m.fase === "fechado" && m.etapa === "fechado") return voltar({ ja: true });
     const de = etapa === "final" ? "versoes" : "gravar";
     if (m.etapa !== de || (etapa === "final" && m.rodada !== rodada)) return mudou(m);
     // o que o William aprovou vira o mês do cliente: some o "versão nova" e a rodada dele
@@ -613,6 +615,33 @@ async function mandarWhatsapp(env, m, texto) {
     } catch (e) { console.log("nem pro Mateus: " + e); }
   }
   return false;
+}
+
+// ---------- Conferência da refação automática (22/11) ----------
+// rf|cliente|mes|rodada|s (Seguir) ou |e (Eu refaço), mandados pelo refazer_mes.py só pro privado do Mateus.
+// Vale o primeiro clique; o PC lê em /respostas (etapa rf_s ou rf_e, origem rf:<rodada>).
+async function cliqueRefacao(clique, env) {
+  const [, cliente, mes, rodada, escolha] = String(clique.data).split("|");
+  const msg = clique.message || {};
+  const responder = (texto) => Response.json({ method: "answerCallbackQuery", callback_query_id: clique.id, text: texto, show_alert: true });
+  if (!validoMes(cliente || "", mes || "") || !/^\d+$/.test(rodada || "") || !["s", "e"].includes(escolha) || !msg.chat) {
+    return responder("Botão antigo, não deu pra usar.");
+  }
+  if (!AVISAR.includes(Number((clique.from || {}).id))) return responder("Esse botão é só do Mateus.");
+  await prepararRespostas(env);
+  const origem = "rf:" + rodada;
+  const ja = await env.BANCO.prepare("SELECT etapa FROM respostas WHERE cliente = ? AND mes = ? AND origem = ?")
+    .bind(cliente, mes, origem).first();
+  if (!ja) {
+    await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa, post, origem) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(agora(), cliente, mes, "rf_" + escolha, null, origem).run();
+  }
+  const valeu = ja ? ja.etapa.slice(3) : escolha;
+  const aviso = valeu === "s" ? await avisoDoPc(env).catch(() => "") : "";
+  const fim = valeu === "s" ? "Seguindo: as versões sobem em até 2 min." : "Fica contigo. Quando terminar, mes.py versoes.";
+  await telegram(env, "editMessageText", { chat_id: msg.chat.id, message_id: msg.message_id,
+    text: ((msg.text || "") + "\n\n" + aviso + fim).slice(0, 4000), reply_markup: { inline_keyboard: [] } });
+  return responder(ja ? "Já tinha resposta: vale a primeira." : valeu === "s" ? "Seguindo." : "Combinado, fica contigo.");
 }
 
 // ---------- Sinal de vida do PC (21/11) ----------
