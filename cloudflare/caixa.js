@@ -241,9 +241,11 @@ async function receberAudio(pedido, env) {
 // "final" (as versões novas ficaram certas). Avisa no privado e guarda.
 // Fala vaga (19/11): "zero" (faz outro do zero, com o post) e "outros" (os
 // outros posts estão ok) vêm dos botões da pergunta no grupo.
+// "nada" (23/11): "Não pedi nada nesse", a fala caiu no post errado e ele sai da lista.
 const ETAPAS = {
   lista: "confirmou a lista de ajustes", final: "confirmou que ficou tudo certo",
   zero: "pediu outro do zero", outros: "disse que os outros posts estão ok",
+  nada: "disse que não pediu nada",
 };
 
 async function receberConfirmacao(pedido, env) {
@@ -256,7 +258,7 @@ async function receberConfirmacao(pedido, env) {
   if (!confere(String(form.get("chave") || ""), await chaveDaPagina(env, cliente, mes, papel))) return respostaPagina({ erro: "não" }, 401);
   const post = String(form.get("post") || "");
   if (post && !/^\d{4}-\d{2}-\d{2}$/.test(post)) return respostaPagina({ erro: "pedido errado" }, 400);
-  if (etapa === "zero" && !post) return respostaPagina({ erro: "pedido errado" }, 400);
+  if ((etapa === "zero" || etapa === "nada") && !post) return respostaPagina({ erro: "pedido errado" }, 400);
   const m = await lerMes(env, cliente, mes);
   if (m) return await confirmarNoMes(env, m, papel, etapa, post, Number(form.get("rodada")));
   if (papel === "w" || etapa === "liberar") return respostaPagina({ erro: "mês não aberto" }, 404);
@@ -555,15 +557,16 @@ async function confirmarNoMes(env, m, papel, etapa, post, rodada) {
     return voltar({ whatsapp: foi });
   }
 
-  if (etapa === "zero" || etapa === "outros") {
+  if (etapa === "zero" || etapa === "nada" || etapa === "outros") {
     if (m.etapa === "processando") return voltar({ ja: true });
     if (m.etapa !== "pergunta") return mudou(m);
-    if (etapa === "zero") {
+    const doPost = etapa !== "outros";
+    if (doPost) {
       const v = m.vagos.find((x) => x.post === post);
       if (!v) return respostaPagina({ erro: "post errado" }, 400);
       if (v.resposta) return voltar({ ja: true });
     } else if (m.outros) return voltar({ ja: true });
-    const vagos = m.vagos.map((v) => (etapa === "zero" && v.post === post ? { ...v, resposta: "zero" } : v));
+    const vagos = m.vagos.map((v) => (doPost && v.post === post ? { ...v, resposta: etapa } : v));
     const outros = etapa === "outros" ? 1 : m.outros;
     const campos = { vagos, outros };
     if (vagos.every((v) => v.resposta) && (m.frase || outros)) campos.etapa = "processando";
@@ -575,7 +578,7 @@ async function confirmarNoMes(env, m, papel, etapa, post, rodada) {
   return respostaPagina({ erro: "pedido errado" }, 400);
 }
 
-// guarda em respostas: o audio_mes.py lê zero e outros (fala vaga); o resto fica de registro
+// guarda em respostas: o audio_mes.py lê zero, nada e outros (fala vaga); o resto fica de registro
 async function registrar(env, m, etapa, post, papel) {
   await prepararRespostas(env);
   await env.BANCO.prepare("INSERT INTO respostas (recebido, cliente, mes, etapa, post, origem) VALUES (?, ?, ?, ?, ?, ?)")
