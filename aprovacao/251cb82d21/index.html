@@ -234,6 +234,13 @@
   .vago { border-top: 1px solid var(--linha); padding: 4px 0 18px; }
   .vago .ajuste { border-top: 0; }
   .acoes { display: grid; gap: 8px; margin-top: 14px; }
+  /* lista comprida (24/11, William não achou o Ainda quero mudar depois de 15 pedidos): os botões grudam no
+     pé da tela enquanto a lista passa e voltam pro lugar quando ela acaba */
+  .acoes.fixas {
+    position: sticky; bottom: 0; z-index: 5; margin: 14px -16px -16px;
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    background: var(--alto); border-top: 1px solid var(--linha-forte);
+  }
   .etapa .secundario { font-size: 16px; min-height: 50px; }
   /* na dúvida, o principal em cima e as duas saídas lado a lado */
   .vago .acoes { grid-template-columns: 1fr 1fr; margin-top: 4px; }
@@ -609,9 +616,9 @@ function quando(segundos) {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " +
     d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
 }
-function acoes(caixa, botoes) {
+function acoes(caixa, botoes, fixas = false) {
   const div = document.createElement("div");
-  div.className = "acoes";
+  div.className = "acoes" + (fixas ? " fixas" : "");
   botoes.forEach(([texto, classe, clique]) => {
     const b = document.createElement("button");
     b.className = "botao" + (classe ? " " + classe : "");
@@ -768,7 +775,7 @@ function mostrar(forcar) {
       cx.appendChild(nota);
       acoes(cx, [["Tá certo", "", (b) => tocar("lista", {}, b)],
                  ["Não é isso, gravar de novo", "secundario", () => telaGravar("Aperte Gravar lá embaixo e fale de novo o que quer mudar. " +
-                   "Aparecem só os posts desta lista.", (e.ajustes || []).map((a) => a.post))]]);
+                   "Aparecem só os posts desta lista.", (e.ajustes || []).map((a) => a.post))]], true);
       telas();
       return;
     }
@@ -777,7 +784,7 @@ function mostrar(forcar) {
         ? "Os ajustes estão sendo feitos. O aviso chega no seu Telegram quando ficarem prontos."
         : "Confirmado em " + quando(e.atualizado) + ". Te avisamos pelo WhatsApp quando os ajustes ficarem prontos. Pode fechar esta página.") + "</p>");
       listaAjustes(cx, e.ajustes, false);
-      acoes(cx, [["Esqueci de falar algo", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que faltou.")]]);
+      acoes(cx, [["Esqueci de falar algo", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que faltou.")]], true);
       telas();
       return;
     }
@@ -785,7 +792,7 @@ function mostrar(forcar) {
       const cx = caixaEtapa("<h2>Ajustes prontos</h2><p>Toque em cada um pra ver grande. Dá pra ver como era antes.</p>");
       listaAjustes(cx, e.ajustes, true);
       acoes(cx, [[W ? "Ficou certo, liberar pro cliente" : "Ficou tudo certo", "", (b) => tocar("final", {}, b)],
-                 ["Ainda quero mudar", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que quer mudar.")]]);
+                 ["Ainda quero mudar", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que quer mudar.")]], true);
       telas();
       return;
     }
