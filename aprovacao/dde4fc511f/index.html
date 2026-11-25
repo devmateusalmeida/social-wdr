@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Calendário do mês</title>
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0B0A0A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Visual da marca WDR (site williamderossi.com, design system tirado em 23/11): fundo quase preto, creme,
+     vermelho REC, cantos retos. O momento marcante é a gravação: cantos de visor e "Gravando" no post. */
+  :root {
+    --fundo: #0B0A0A;
+    --alto: #1A1918;
+    --linha: #2A2827;
+    --linha-forte: #3F3C3A;
+    --branco: #E4E2DD;
+    --cinza-claro: #B5B2AD;
+    --cinza: #8E8B87;
+    --suave: #B5B2AD;
+    --acento: #FF3B30;          /* REC: ponto, cantos, detalhes */
+    --acento-botao: #E0281E;    /* um tom abaixo pro texto branco do botão passar no contraste (4,7:1) */
+    --erro: #FF7A70;
+    --titulo: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --texto: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: "Space Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--fundo);
+    color: var(--cinza-claro);
+    font: 16px/1.5 var(--texto);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    padding-bottom: 210px;
+  }
+  button, a { touch-action: manipulation; }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--acento); outline-offset: 3px; }
+  ::selection { background: var(--acento); color: #fff; }
+  b { color: var(--branco); font-weight: 600; }
+
+  /* topo */
+  .topo { padding: max(18px, env(safe-area-inset-top)) 16px 6px; max-width: 720px; margin: 0 auto; }
+  .marca { display: block; width: 58px; height: auto; margin-bottom: 22px; }
+  .topo small {
+    display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--acento);
+  }
+  .topo h1 {
+    margin: 8px 0 0; font-family: var(--titulo); font-weight: 500; font-size: 32px; line-height: 1.06;
+    letter-spacing: -.03em; color: var(--branco);
+  }
+
+  /* como funciona */
+  .guia { max-width: 720px; margin: 18px auto 22px; padding: 0 16px; font-size: 15px; }
+  .guia p { margin: 0; }
+  .guia ol { list-style: none; margin: 14px 0; padding: 0; border-top: 1px solid var(--linha); counter-reset: passo; }
+  .guia li {
+    counter-increment: passo; position: relative; padding: 11px 0 11px 34px; border-bottom: 1px solid var(--linha);
+  }
+  .guia li::before {
+    content: counter(passo); position: absolute; left: 0; top: 11px; width: 22px; height: 22px;
+    display: grid; place-items: center; font-family: var(--mono); font-size: 12px; color: var(--acento);
+    border: 1px solid var(--linha-forte);
+  }
+
+  /* grade do mês */
+  .grade {
+    max-width: 720px; margin: 0 auto; padding: 0 16px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+  }
+  .bloco { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: var(--alto); cursor: pointer; border: 0; padding: 0; }
+  .bloco img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bloco .dia {
+    position: absolute; left: 0; top: 0;
+    background: rgba(11,10,10,.78); color: var(--branco);
+    font-family: var(--mono); font-size: 10.5px; padding: 3px 6px;
+  }
+  .bloco .varias { position: absolute; right: 5px; top: 5px; width: 18px; height: 18px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  .bloco .nova {
+    position: absolute; left: 0; right: 0; bottom: 0; background: var(--acento-botao); color: #fff;
+    font-family: var(--titulo); font-size: 12px; font-weight: 600; padding: 3px 6px; text-align: center;
+  }
+
+  /* visor: um post por tela, passa pra cima */
+  .visor { position: fixed; inset: 0; background: var(--fundo); z-index: 10; display: none; flex-direction: column; }
+  .visor.aberto { display: flex; }
+  .visor-barra {
+    position: relative; display: flex; align-items: center; justify-content: space-between;
+    padding: max(6px, env(safe-area-inset-top)) 8px 6px 4px;
+    border-bottom: 1px solid var(--linha); background: var(--fundo);
+  }
+  .visor-barra button {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px;
+    background: none; border: 0; font: 600 16px/1 var(--texto); color: var(--branco); cursor: pointer;
+  }
+  .visor-barra button::before {
+    content: ""; width: 9px; height: 9px; border-left: 2px solid var(--acento); border-bottom: 2px solid var(--acento);
+    transform: rotate(45deg); margin-right: 2px;
+  }
+  .visor-barra #posicao { font-family: var(--mono); font-size: 13px; color: var(--cinza); padding-right: 8px; }
+  body.gravando #voltar { visibility: hidden; }
+  .rec {
+    display: none; position: absolute; left: 16px; bottom: 0; height: 56px;
+    align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--acento);
+  }
+  .rec::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--acento); animation: pisca 1.4s ease-in-out infinite; }
+  body.gravando .rec { display: flex; }
+  /* contain: puxar pra baixo no meio da gravação não recarrega a página */
+  .lista { flex: 1; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior: contain; }
+  .post {
+    /* always: um deslize passa um post só, mesmo com o dedo rápido (pedido do Mateus, 18/11) */
+    scroll-snap-align: start; scroll-snap-stop: always; min-height: 100%;
+    padding: 16px 16px 150px; max-width: 520px; margin: 0 auto;
+  }
+  .post h2 {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 12px;
+    font-family: var(--titulo); font-weight: 500; font-size: 22px; letter-spacing: -.02em; color: var(--branco);
+  }
+  .post h2 span { font-family: var(--mono); font-size: 13px; letter-spacing: 0; color: var(--cinza); }
+  .moldura { position: relative; }
+  .fotos { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; background: var(--alto); scrollbar-width: none; }
+  .fotos::-webkit-scrollbar { display: none; }
+  .fotos img { flex: 0 0 100%; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; scroll-snap-align: center; display: block; }
+  /* cantos de visor de câmera enquanto grava (o mesmo do logo e do site da WDR) */
+  .moldura::before, .moldura::after {
+    content: ""; position: absolute; z-index: 2; width: 34px; height: 34px; border: 0 solid var(--acento);
+    opacity: 0; transition: opacity .25s; pointer-events: none;
+  }
+  .moldura::before { top: -7px; left: -7px; border-top-width: 3px; border-left-width: 3px; }
+  .moldura::after { bottom: -7px; right: -7px; border-bottom-width: 3px; border-right-width: 3px; }
+  body.gravando .moldura::before, body.gravando .moldura::after { opacity: 1; }
+  .pontos { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+  .pontos i { width: 6px; height: 6px; border-radius: 50%; background: var(--linha-forte); }
+  .pontos i.ativo { background: var(--acento); }
+  .legenda { margin-top: 14px; font-size: 15px; white-space: pre-line; color: var(--cinza-claro); }
+  .legenda.curta { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .mais {
+    min-height: 44px; background: none; border: 0; padding: 0; cursor: pointer;
+    font: 500 14px var(--texto); color: var(--branco); text-decoration: underline; text-decoration-color: var(--linha-forte);
+    text-underline-offset: 4px;
+  }
+
+  /* versão nova: as duas opções sempre à vista, a escolhida acesa, e o carimbo na arte diz qual está na tela */
+  .post .tag {
+    font-family: var(--titulo); font-style: normal; font-size: 12px; font-weight: 600; letter-spacing: 0;
+    background: var(--acento-botao); color: #fff; padding: 3px 8px;
+  }
+  .versoes { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 12px; border: 1px solid var(--linha-forte); }
+  .comoera {
+    min-height: 46px; border: 0; background: transparent; color: var(--cinza-claro); cursor: pointer;
+    font: 500 16px var(--titulo);
+  }
+  .comoera + .comoera { border-left: 1px solid var(--linha-forte); }
+  .comoera.ativo { background: var(--branco); color: var(--fundo); font-weight: 600; }
+  .carimbo {
+    position: absolute; z-index: 1; left: 0; top: 0; padding: 5px 9px; font: 600 13px var(--titulo);
+    background: var(--acento-botao); color: #fff;
+  }
+  .vendo-antes .carimbo { background: var(--branco); color: var(--fundo); }
+
+  /* gravação, sempre embaixo */
+  .gravador {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 18px 16px max(14px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--fundo) 72%, rgba(11,10,10,0));
+  }
+  .gravador .dentro { max-width: 520px; margin: 0 auto; }
+  .lembrete {
+    display: none; font-size: 14px; color: var(--branco);
+    background: var(--alto); border-left: 2px solid var(--acento); padding: 10px 12px; margin-bottom: 10px;
+  }
+  .gravando .lembrete { display: block; }
+  .botao {
+    width: 100%; min-height: 56px; border: 0; border-radius: 0; padding: 14px 16px;
+    font: 600 17px/1.2 var(--titulo); letter-spacing: -.005em; color: #fff; background: var(--acento-botao);
+    display: flex; align-items: center; justify-content: center; gap: 12px; cursor: pointer;
+    text-decoration: none; text-align: center; transition: transform .12s, filter .2s;
+  }
+  .botao:active { transform: scale(.985); filter: brightness(1.1); }
+  .botao:disabled { opacity: .55; }
+  .bola { flex: none; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: border-radius .2s; }
+  /* gravando: o ponto vira o quadrado de parar e o botão pulsa */
+  .gravando #botao { animation: pulso 1.6s ease-out infinite; font-variant-numeric: tabular-nums; }
+  .gravando .bola { border-radius: 2px; }
+  @keyframes pulso { 0% { box-shadow: 0 0 0 0 rgba(255,59,48,.55); } 100% { box-shadow: 0 0 0 14px rgba(255,59,48,0); } }
+  @keyframes pisca { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  .erro { display: none; margin-top: 10px; font-size: 14px; color: var(--erro); }
+  .secundario { background: transparent; color: var(--branco); border: 1px solid var(--linha-forte); font-weight: 500; }
+  #aprovar { margin-top: 8px; font-size: 16px; min-height: 50px; }
+  .gravando #aprovar { display: none !important; }
+
+  /* fim (enviando, não foi) */
+  .fim { display: none; max-width: 520px; margin: 0 auto; padding: max(18px, env(safe-area-inset-top)) 16px 40px; }
+  .fim.aberto { display: block; }
+  .fim h1 { font-family: var(--titulo); font-weight: 500; font-size: 30px; letter-spacing: -.03em; color: var(--branco); margin: 0 0 8px; }
+  .fim p { margin: 0 0 22px; }
+  .bastidor { background: var(--alto); border: 1px solid var(--linha); padding: 14px 16px; margin-top: 16px; }
+  .bastidor h3 { margin: 0 0 8px; font: 400 11px var(--mono); text-transform: uppercase; letter-spacing: .14em; color: var(--cinza); }
+  .bastidor audio { width: 100%; margin-bottom: 12px; }
+  .bastidor ol { margin: 0; padding-left: 20px; font-size: 15px; }
+  .bastidor li { margin-bottom: 4px; }
+  .bastidor .tempo { font-family: var(--mono); font-size: 13px; color: var(--cinza); }
+  .denovo {
+    margin-top: 16px; min-height: 50px; padding: 0 20px; background: none; color: var(--branco);
+    border: 1px solid var(--linha-forte); font: 500 16px var(--titulo); cursor: pointer;
+  }
+
+  /* etapas: Entendi assim / Ajustes prontos / pergunta / aprovado */
+  .etapa {
+    position: relative; max-width: 720px; margin: 18px auto 22px; padding: 20px 16px 16px;
+    background: var(--alto); border: 1px solid var(--linha);
+  }
+  .etapa::before { content: ""; position: absolute; top: -1px; left: 16px; width: 32px; height: 2px; background: var(--acento); }
+  @media (max-width: 752px) { .etapa { margin-left: 16px; margin-right: 16px; } }
+  .etapa h2 { margin: 0 0 6px; font-family: var(--titulo); font-weight: 500; font-size: 24px; line-height: 1.15; letter-spacing: -.025em; color: var(--branco); }
+  .etapa > p { margin: 0 0 14px; font-size: 15px; }
+  .etapa > p:last-child { margin-bottom: 0; }
+  .ajuste { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--linha); cursor: pointer; }
+  .miniaturas { flex: none; display: flex; align-items: center; gap: 4px; }
+  .ajuste > img, .miniaturas img { flex: none; width: 60px; aspect-ratio: 4 / 5; object-fit: cover; display: block; background: var(--fundo); }
+  .miniaturas.duas img { width: 48px; }
+  .miniaturas.duas img.era { opacity: .45; }
+  .miniaturas.duas i { width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 7px; border-color: transparent transparent transparent var(--acento); }
+  .ajuste b { display: block; font: 400 12px var(--mono); color: var(--cinza); margin-bottom: 3px; }
+  .ajuste span { display: block; font-size: 16px; line-height: 1.35; color: var(--branco); }
+  .ajuste small { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--acento); }
+  .vago { border-top: 1px solid var(--linha); padding: 4px 0 18px; }
+  .vago .ajuste { border-top: 0; }
+  .acoes { display: grid; gap: 8px; margin-top: 14px; }
+  /* lista comprida (24/11, William não achou o Ainda quero mudar depois de 15 pedidos): os botões grudam no
+     pé da tela enquanto a lista passa e voltam pro lugar quando ela acaba */
+  .acoes.fixas {
+    position: sticky; bottom: 0; z-index: 5; margin: 14px -16px -16px;
+    padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+    background: var(--alto); border-top: 1px solid var(--linha-forte);
+  }
+  .etapa .secundario { font-size: 16px; min-height: 50px; }
+  /* na dúvida, o principal em cima e as duas saídas lado a lado */
+  .vago .acoes { grid-template-columns: 1fr 1fr; margin-top: 4px; }
+  .vago .acoes > :first-child, .vago .acoes .erro { grid-column: 1 / -1; }
+  .vago .acoes .secundario { font-size: 15px; padding: 10px 8px; }
+  .esperando::after { content: ""; display: inline; animation: pontinhos 1.4s steps(4) infinite; }
+  @keyframes pontinhos { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  @media (prefers-reduced-motion: reduce) {
+    .gravando #botao, .rec::before, .esperando::after { animation: none; }
+    .botao, .moldura::before, .moldura::after { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<main id="inicio">
+  <header class="topo">
+    <img class="marca" alt="WDR" width="291" height="138" src="data:image/png;base64,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">
+    <small id="cliente"></small>
+    <h1 id="titulo"></h1>
+  </header>
+  <section class="etapa" id="etapa"><h2 class="esperando">Carregando</h2></section>
+  <section class="guia" id="guia" style="display:none"></section>
+  <section class="grade" id="grade"></section>
+</main>
+
+<section class="visor" id="visor">
+  <div class="visor-barra">
+    <button id="voltar">Ver o mês</button>
+    <span class="rec" aria-hidden="true">Gravando</span>
+    <span id="posicao"></span>
+  </div>
+  <div class="lista" id="lista"></div>
+</section>
+
+<section class="fim" id="fim">
+  <img class="marca" alt="WDR" width="291" height="138" src="data:image/png;base64,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">
+  <h1 id="fim-titulo">Enviando...</h1>
+  <p id="fim-texto">Só um instante, não feche esta página.</p>
+  <button class="botao" id="tentar" style="display:none">Tentar de novo</button>
+  <div class="bastidor" id="bastidor" style="display:none">
+    <h3>Bastidor (só com ?bastidor no link)</h3>
+    <audio id="ouvir" controls></audio>
+    <ol id="linha"></ol>
+  </div>
+  <button class="denovo" id="denovo" style="display:none">Voltar pro mês</button>
+</section>
+
+<div class="gravador" id="gravador" style="display:none">
+  <div class="dentro">
+    <div class="lembrete" id="lembrete"></div>
+    <button class="botao" id="botao"><span class="bola"></span><span id="rotulo">Gravar áudio</span></button>
+    <button class="botao secundario" id="aprovar"></button>
+    <div class="erro" id="erro"></div>
+  </div>
+</div>
+
+<script>
+// Página do mês, fluxo novo (22/11). O HTML só tem os posts; em que etapa o mês está vem do Worker
+// (GET /estado), perguntado a cada poucos segundos. A chave vem no fim do link (#c= cliente, #w= William),
+// fora do arquivo: quem achar esta página no repositório não consegue gravar nem aprovar.
+const DADOS = {"cliente": "Inteligência Emocional Masculina", "mes": "novembro", "clienteId": "teste-livro", "mesId": "2026-11", "caixa": "https://caixa-aprovacao.aprovacao-wdr.workers.dev", "posts": [{"id": "2026-11-03", "dia": "ter", "data": "03/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-03-1.jpg"], "legenda": "Alguém em casa pergunta se está tudo bem.\nVocê responde antes de pensar: “Está.”\nE a conversa acaba ali.\n\nA conta que não fecha, o problema do trabalho, o cansaço que vem de longe. Fica tudo guardado.\nEm casa, todo mundo dorme tranquilo. Você demora pra pegar no sono.\n\nO Marcos, da história que abre o livro, vive essa mesma noite. Talvez você se reconheça nele.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #saudeemocional #sobrecarga #autoconhecimento"}, {"id": "2026-11-05", "dia": "qui", "data": "05/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-05-1.jpg"], "legenda": "Ninguém senta com um menino pra explicar as regras.\nMesmo assim, ele aprende: não chora, não reclama, não mostra que dói.\n\nIsso tem nome: Caixa da Masculinidade. É a regra não escrita de nunca ser visto como fraco.\nEla vai junto pro trabalho, pro casamento, pras amizades. E quase ninguém percebe que vive dentro dela.\n\nQuando foi a primeira vez que você ouviu que homem não chora?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #caixadamasculinidade #saudementalmasculina #masculinidade #autoconhecimento"}, {"id": "2026-11-07", "dia": "sáb", "data": "07/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-07-1.jpg"], "legenda": "Alguém pergunta: “Tudo bem?”\nE o “tudo” sai sozinho, antes de você decidir.\n\nHoje, tente uma coisa só: antes de responder, espere um segundo.\nNem precisa dizer algo diferente. Só esperar.\n\nEsse segundo abre espaço entre a resposta automática e a sua resposta. É o dia 2 do desafio da Micro-Verdade, um dos exercícios do livro.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #microverdade #saudementalmasculina #saudeemocional #autoconhecimento"}, {"id": "2026-11-10", "dia": "ter", "data": "10/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-10-1.jpg"], "legenda": "O boleto chega, você olha o valor e fecha o aplicativo do banco.\nEm casa, chega sorrindo e pergunta como foi o dia de todo mundo.\n\nVocê guarda o aperto pra eles não se preocuparem.\nSó que a preocupação continua ali, toda com você, e pesa em dobro.\n\nQuando foi a última vez que você contou em casa que o mês estava apertado?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #sobrecarga #financaspessoais #saudeemocional"}, {"id": "2026-11-12", "dia": "qui", "data": "12/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-12-1.jpg"], "legenda": "Alguém pergunta como você está e a resposta sai antes de pensar: “tudo bem”.\nDe tanto repetir, vira piloto automático.\n\nO silêncio é um padrão aprendido cedo, que vira hábito.\nE o corpo continua avisando, com o peito apertado, a cabeça doendo, o estômago queimando.\n\nQuantas vezes você já disse “tudo bem” hoje sem pensar?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #autoconhecimento #saudeemocional #pilotoautomatico"}, {"id": "2026-11-14", "dia": "sáb", "data": "14/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-14-1.jpg"], "legenda": "Antes de dormir, pega o celular e abre o bloco de notas.\nRepara no corpo primeiro: peito apertado, cabeça pesada, cansaço.\nDepois escreve uma frase honesta sobre como foi o dia. Só uma.\n\nNinguém vai ler. É o dia 1 do desafio da Micro-Verdade, que está no livro.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #autoconhecimento #saudeemocional #autocuidado"}, {"id": "2026-11-17", "dia": "ter", "data": "17/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-17-1.jpg"], "legenda": "O carro da frente demora no sinal e você já está buzinando.\nChega em casa e qualquer pergunta parece cobrança.\n\nA paciência não acabou do nada.\nO dia inteiro ficou guardado, e o que não foi dito acaba saindo por outro lado.\n\nO que você engoliu hoje antes de pegar o trânsito?\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #estresse #transito #saudeemocional"}, {"id": "2026-11-19", "dia": "qui", "data": "19/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-19-1.jpg"], "legenda": "Alguém pergunta o que você está sentindo e a resposta sai: “não sei”.\nE muitas vezes é verdade.\n\nO peito aperta, o estômago queima, a cabeça dói.\nO sentimento está ali, só não chegou a virar palavra.\n\nDar nome ao que sente se aprende, como qualquer outra coisa.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #emocoes #autoconhecimento #saudeemocional"}, {"id": "2026-11-21", "dia": "sáb", "data": "21/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-21-1.jpg"], "legenda": "Te perguntam como você está e o “tudo bem” já está na ponta da língua.\nHoje dá pra tentar outra coisa.\n\n“O dia está corrido.”\n“Estou um pouco cansado hoje.”\n\nÉ pequeno, e é verdade. É o dia 3 do desafio da Micro-Verdade do livro.\n\nO Livro 1 está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #microverdade #autocuidado #saudeemocional"}, {"id": "2026-11-24", "dia": "ter", "data": "24/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-24-1.jpg"], "legenda": "Cansaço que a gente guarda não sai no travesseiro.\n\nVocê deita, apaga a luz, e a cabeça continua na conta que não fechou e na conversa que ficou pra depois.\n\nDe manhã levanta, toma o café e diz que dormiu bem. Ninguém em casa percebe.\n\nQuando foi a última vez que você contou pra alguém que não está dormindo direito?\n\nA história do Marcos, que também diz “está tudo bem” em casa, está no Livro 1, no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #cansacomental #sono #emocoesmasculinas"}, {"id": "2026-11-26", "dia": "qui", "data": "26/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-26-1.jpg"], "legenda": "Um erro comum é achar que guardar tudo é jeito de ser, coisa de quem já nasceu assim.\n\nMuitas vezes esse silêncio foi aprendido cedo, junto com a regra de nunca parecer fraco.\n\nNaquela época, calar protegia. Com os anos virou hábito, e hoje o “tudo bem” sai antes de você pensar.\n\nSe foi aprendido, dá pra aprender outro jeito, um passo de cada vez.\n\nO Livro 1 mostra de onde vem esse padrão. Está no link da bio.\n\n#inteligenciaemocionalmasculina #saudementalmasculina #saudeemocional #emocoes #homens"}, {"id": "2026-11-28", "dia": "sáb", "data": "28/11", "hora": "19h", "tipo": "feed", "imagens": ["https://devmateusalmeida.github.io/social-wdr/aprovacao/dde4fc511f/img/11-28-1.jpg"], "legenda": "Sábado chega e você passa o dia resolvendo o que sobrou da semana: o mercado, o conserto, a conta pra pagar.\n\nNo livro tem três perguntas pra puxar a cortina. Uma delas quase ninguém faz pra si mesmo: qual é a sua maior necessidade hoje?\n\nPode ser dormir. Pode ser conversar com alguém. Pode ser ficar uma hora quieto sem ninguém pedir nada.\n\nEscreve a resposta no celular, só pra você. Uma linha já serve.\n\nO Livro 1 está no link da bio, com as outras duas perguntas.\n\n#inteligenciaemocionalmasculina #saudeemocional #saudementalmasculina #autoconhecimento #homens"}]};
+const $ = (id) => document.getElementById(id);
+const frag = new URLSearchParams(location.hash.slice(1));
+const W = !!frag.get("w");
+const PAPEL = W ? "w" : "c";
+const CHAVE = frag.get("w") || frag.get("c") || "";
+const MES = DADOS.mes;
+const MES_TITULO = MES.charAt(0).toUpperCase() + MES.slice(1);
+const N = DADOS.posts.length;
+
+$("cliente").textContent = W ? "Revisão antes do cliente · " + DADOS.cliente : DADOS.cliente;
+$("titulo").textContent = "Posts de " + MES;
+document.title = DADOS.cliente + ": " + MES;
+const LEMBRETE = "Vá passando os posts e fale de todos que quer mudar. O que você não comentar fica como está.";
+$("lembrete").textContent = LEMBRETE;
+$("aprovar").textContent = W ? "Tudo certo, liberar pro cliente" : "Está tudo certo";
+// 23/11: o mesmo texto em passos, pra ler de relance no celular
+$("guia").innerHTML = (W
+  ? "<p>Revisão antes de ir pro cliente. Se algo precisar mudar, faça igual o cliente vai fazer:</p>"
+  : "<p>Dá uma olhada nos posts. Se algo precisar mudar:</p>") +
+  "<ol><li>Aperte <b>Gravar áudio</b>.</li>" +
+  "<li>Vá passando os posts e fale o que quer mudar. Não precisa dizer qual post é: a gente sabe qual estava na sua tela.</li>" +
+  // 22/11 (Mateus): sem a frase do fim. O que não for comentado fica como está.
+  "<li>Fale de <b>todos os posts que quer mudar</b> de uma vez e toque pra enviar. Os que você não comentar, a gente entende que estão bons.</li></ol>" +
+  (W ? "<p>Se estiver tudo certo, toque em <b>Tudo certo, liberar pro cliente</b>: aparece o botão pra mandar o link no WhatsApp.</p>"
+     : "<p>Se não precisar mudar nada, toque em <b>Está tudo certo</b>.</p>");
+
+const iconeVarias = '<svg class="varias" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></svg>';
+const nome = (p) => p.dia + " " + p.data + ", " + p.hora;
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+// ---------- posts (grade e visor). Refeitos quando chega versão nova de alguma arte ----------
+let posts = DADOS.posts.map((p) => ({ ...p, antes: null }));
+const indice = (id) => posts.findIndex((p) => p.id === id);
+const visivel = new IntersectionObserver((entradas) => {
+  entradas.forEach((e) => { if (e.isIntersecting) { postAtual = +e.target.dataset.i; atualizar(); } });
+}, { root: $("lista"), threshold: 0.55 });
+
+function montarPosts() {
+  $("grade").innerHTML = "";
+  $("lista").innerHTML = "";
+  visivel.disconnect();
+  posts.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.className = "bloco";
+    b.innerHTML = '<img alt="" src="' + esc(p.imagens[0]) + '">' +
+      (p.imagens.length > 1 ? iconeVarias : "") +
+      '<span class="dia">' + esc(p.dia + " " + p.data) + "</span>" +
+      (p.antes ? '<span class="nova">versão nova</span>' : "");
+    b.onclick = () => abrirVisor(i);
+    $("grade").appendChild(b);
+
+    const s = document.createElement("article");
+    s.className = "post";
+    s.dataset.i = i;
+    const fotos = p.imagens.map((u) => '<img loading="lazy" alt="" src="' + esc(u) + '">').join("");
+    const pontos = p.imagens.length > 1
+      ? '<div class="pontos">' + p.imagens.map((_, k) => '<i class="' + (k ? "" : "ativo") + '"></i>').join("") + "</div>" : "";
+    // 23/11: o "versão nova" fica só no carimbo da arte, que muda junto com o Como era / Como ficou
+    s.innerHTML = "<h2>" + esc(p.dia + " " + p.data) + " <span>" + esc(p.hora) + "</span></h2>" +
+      // 23/11: "Como era" e "Como ficou" sempre à vista, a escolhida acesa; o carimbo na arte diz qual está na tela
+      (p.antes ? '<div class="versoes" role="group" aria-label="Qual versão ver">' +
+        '<button class="comoera" data-ver="antes" aria-pressed="false">Como era</button>' +
+        '<button class="comoera ativo" data-ver="nova" aria-pressed="true">Como ficou</button></div>' : "") +
+      '<div class="moldura"><div class="fotos">' + fotos + "</div>" +
+      (p.antes ? '<span class="carimbo">Versão nova</span>' : "") + "</div>" + pontos +
+      '<div class="legenda curta"></div><button class="mais">ver legenda inteira</button>';
+    if (p.antes) {
+      const carimbo = s.querySelector(".carimbo");
+      const botoesEra = s.querySelectorAll(".comoera");
+      botoesEra.forEach((botao) => {
+        botao.onclick = () => {
+          const vendoAntes = botao.dataset.ver === "antes";
+          const lista = vendoAntes ? p.antes : p.imagens;
+          s.querySelectorAll(".fotos img").forEach((img, k) => { img.src = lista[k] || lista[0]; });
+          botoesEra.forEach((b) => { b.classList.toggle("ativo", b === botao); b.setAttribute("aria-pressed", String(b === botao)); });
+          carimbo.textContent = vendoAntes ? "Como era antes" : "Versão nova";
+          s.classList.toggle("vendo-antes", vendoAntes);
+        };
+      });
+    }
+    s.querySelector(".legenda").textContent = p.legenda;
+    const mais = s.querySelector(".mais");
+    mais.onclick = () => {
+      const l = s.querySelector(".legenda");
+      l.classList.toggle("curta");
+      mais.textContent = l.classList.contains("curta") ? "ver legenda inteira" : "mostrar menos";
+    };
+    const trilho = s.querySelector(".fotos");
+    trilho.addEventListener("scroll", () => {
+      const k = Math.round(trilho.scrollLeft / trilho.clientWidth);
+      if (k !== (+trilho.dataset.k || 0)) {
+        trilho.dataset.k = k;
+        s.querySelectorAll(".pontos i").forEach((d, j) => d.classList.toggle("ativo", j === k));
+        atualizar();
+      }
+    }, { passive: true });
+    $("lista").appendChild(s);
+    visivel.observe(s);
+  });
+  aplicarFiltro();
+}
+
+// regravação só com os posts que importam (23/11): "Não é isso" mostra só os posts da lista e "Gravar sobre
+// esse post" só aquele, pra fala não se espalhar pelo mês inteiro. "Mostrar todos os posts" tira o filtro.
+let filtro = null;
+function aplicarFiltro() {
+  posts.forEach((p, i) => {
+    const some = filtro && !filtro.includes(p.id) ? "none" : "";
+    if ($("lista").children[i]) $("lista").children[i].style.display = some;
+    if ($("grade").children[i]) $("grade").children[i].style.display = some;
+  });
+}
+function filtrar(ids) {
+  const validos = (ids || []).filter((id) => indice(id) >= 0).sort((a, b) => indice(a) - indice(b));
+  filtro = validos.length ? validos : null;
+  aplicarFiltro();
+}
+
+let postAtual = null;
+function abrirVisor(i) {
+  $("visor").classList.add("aberto");
+  const alvo = $("lista").children[i];
+  // menos a barra do topo: sem isso o post abria uns 50px pra baixo e escondia a data (23/11)
+  $("lista").scrollTop = alvo.offsetTop - $("lista").offsetTop;
+  postAtual = i;
+  atualizar();
+}
+$("voltar").onclick = () => { $("visor").classList.remove("aberto"); atualizar(); };
+
+// onde a pessoa está agora: "grade" ou post (e slide do carrossel)
+function ondeEsta() {
+  if (!$("visor").classList.contains("aberto") || postAtual === null) return "a grade do mês";
+  const p = posts[postAtual];
+  let t = "post de " + nome(p);
+  if (p.imagens.length > 1) {
+    const k = +($("lista").children[postAtual].querySelector(".fotos").dataset.k || 0);
+    t += " (slide " + (k + 1) + " de " + p.imagens.length + ")";
+  }
+  return t;
+}
+
+function atualizar() {
+  if ($("visor").classList.contains("aberto") && postAtual !== null) {
+    $("posicao").textContent = filtro
+      ? (filtro.indexOf(posts[postAtual].id) + 1) + " de " + filtro.length
+      : (postAtual + 1) + " de " + posts.length;
+  }
+  if (gravacao) marcar();
+}
+
+// ---------- gravação ----------
+let gravacao = null, pedacos = [], inicio = 0, marcas = [], relogio = null;
+
+function marcar() {
+  const onde = ondeEsta();
+  const ultima = marcas[marcas.length - 1];
+  if (ultima && ultima.nome === onde) return;
+  const aberto = $("visor").classList.contains("aberto") && postAtual !== null;
+  const p = aberto ? posts[postAtual] : null;
+  const slide = p && p.imagens.length > 1
+    ? +($("lista").children[postAtual].querySelector(".fotos").dataset.k || 0) + 1 : null;
+  marcas.push({ t: Math.round((performance.now() - inicio) / 100) / 10, nome: onde, post: p ? p.id : null, slide });
+}
+
+function formato() {
+  const op = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg"];
+  return op.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+}
+
+const mmss = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+
+async function comecar() {
+  $("erro").style.display = "none";
+  let fluxo;
+  try {
+    fluxo = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    $("erro").textContent = "Não deu pra usar o microfone (" + (e.name || e) + "). Abra este link no navegador do celular e permita o microfone.";
+    $("erro").style.display = "block";
+    return;
+  }
+  const tipo = formato();
+  gravacao = new MediaRecorder(fluxo, tipo ? { mimeType: tipo } : undefined);
+  pedacos = []; marcas = [];
+  gravacao.ondataavailable = (e) => { if (e.data.size) pedacos.push(e.data); };
+  gravacao.onstop = () => terminar(fluxo);
+  // grava sempre com um post aberto: da grade, abre o primeiro
+  inicio = performance.now();
+  if (!$("visor").classList.contains("aberto")) abrirVisor(filtro ? indice(filtro[0]) : 0);
+  gravacao.start(1000);
+  marcar();
+  $("gravador").classList.add("gravando");
+  document.body.classList.add("gravando");
+  relogio = setInterval(() => {
+    $("rotulo").textContent = "Gravando " + mmss((performance.now() - inicio) / 1000) + ", toque pra enviar";
+  }, 250);
+  $("rotulo").textContent = "Gravando 0:00, toque pra enviar";
+}
+
+let duracao = 0, ultimoAudio = null;
+
+function parar() {
+  clearInterval(relogio);
+  duracao = (performance.now() - inicio) / 1000;
+  marcas.push({ t: Math.round(duracao * 10) / 10, nome: "fim", post: null, slide: null });
+  gravacao.stop();
+}
+
+function terminar(fluxo) {
+  fluxo.getTracks().forEach((t) => t.stop());
+  ultimoAudio = new Blob(pedacos, { type: gravacao.mimeType || "audio/webm" });
+  gravacao = null;
+  $("gravador").classList.remove("gravando");
+  document.body.classList.remove("gravando");
+  $("rotulo").textContent = "Gravar áudio";
+  if (new URLSearchParams(location.search).has("bastidor")) mostrarBastidor();
+  $("visor").classList.remove("aberto");
+  $("inicio").style.display = "none";
+  $("gravador").style.display = "none";
+  $("fim").classList.add("aberto");
+  window.scrollTo(0, 0);
+  enviar();
+}
+
+function mostrarBastidor() {
+  $("bastidor").style.display = "block";
+  $("ouvir").src = URL.createObjectURL(ultimoAudio);
+  const ol = $("linha");
+  ol.innerHTML = "";
+  for (let k = 0; k < marcas.length - 1; k++) {
+    const a = marcas[k], b = marcas[k + 1];
+    if (b.t - a.t < 0.8) continue; // passou rápido, não conta
+    const li = document.createElement("li");
+    li.innerHTML = '<span class="tempo">' + mmss(a.t) + " a " + mmss(b.t) + "</span> ";
+    li.appendChild(document.createTextNode(a.nome));
+    ol.appendChild(li);
+  }
+}
+
+function voltarDoFim() {
+  $("fim").classList.remove("aberto");
+  $("bastidor").style.display = "none";
+  $("inicio").style.display = "";
+}
+
+function formBase(etapa) {
+  const form = new FormData();
+  form.append("cliente", DADOS.clienteId);
+  form.append("mes", DADOS.mesId);
+  form.append("papel", PAPEL);
+  form.append("chave", CHAVE);
+  form.append("rodada", String(estado ? estado.rodada : 0));
+  if (etapa) form.append("etapa", etapa);
+  return form;
+}
+
+async function enviar() {
+  $("fim-titulo").textContent = "Enviando...";
+  $("fim-texto").textContent = "Só um instante, não feche esta página.";
+  $("tentar").style.display = "none";
+  $("denovo").style.display = "none";
+  const tipo = ultimoAudio.type || "audio/webm";
+  const ext = tipo.includes("mp4") ? "m4a" : tipo.includes("ogg") ? "ogg" : "webm";
+  const form = formBase();
+  form.append("duracao", String(Math.round(duracao * 10) / 10));
+  form.append("marcas", JSON.stringify(marcas));
+  form.append("audio", ultimoAudio, "audio." + ext);
+  let r, j = {};
+  try {
+    r = await fetch(DADOS.caixa + "/audio", { method: "POST", body: form });
+    try { j = await r.json(); } catch (e) { j = {}; }
+  } catch (e) {
+    r = { ok: false, status: 0, erro: e.message || String(e) };
+  }
+  if (r.ok) {
+    voltarDoFim();
+    modo = "";
+    aplicarEstado(j.estado || { ...estado, etapa: "ouvindo" }, true);
+    window.scrollTo(0, 0);
+    return;
+  }
+  if (r.status === 409 && j.estado) {
+    $("fim-titulo").textContent = "A página mudou";
+    $("fim-texto").textContent = "Enquanto você gravava, este mês mudou de etapa e o áudio não foi. Volte pro mês pra ver como está agora.";
+    $("denovo").style.display = "inline-block";
+    $("denovo").onclick = () => { voltarDoFim(); modo = ""; aplicarEstado(j.estado, true); };
+    return;
+  }
+  $("fim-titulo").textContent = "Não foi";
+  $("fim-texto").textContent = "O áudio não chegou (" + (r.erro || "código " + r.status) + "). Confira a internet e tente de novo, ele continua guardado aqui.";
+  $("tentar").style.display = "flex";
+}
+
+// ---------- etapas, vindas do Worker ----------
+let estado = null, vista = "", assinaturaImagens = "", modo = "", relogioBusca = null;
+
+function caixaEtapa(html) {
+  const c = $("etapa");
+  c.style.display = "block";
+  c.innerHTML = html;
+  return c;
+}
+function telas({ guia = false, gravar = false, aprovar = false } = {}) {
+  $("guia").style.display = guia ? "" : "none";
+  $("gravador").style.display = gravar ? "" : "none";
+  $("aprovar").style.display = aprovar ? "" : "none";
+  $("lembrete").textContent = LEMBRETE;
+}
+function quando(segundos) {
+  const d = new Date(segundos ? segundos * 1000 : Date.now());
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " +
+    d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+}
+function acoes(caixa, botoes, fixas = false) {
+  const div = document.createElement("div");
+  div.className = "acoes" + (fixas ? " fixas" : "");
+  botoes.forEach(([texto, classe, clique]) => {
+    const b = document.createElement("button");
+    b.className = "botao" + (classe ? " " + classe : "");
+    b.textContent = texto;
+    b.onclick = () => clique(b);
+    div.appendChild(b);
+  });
+  const erro = document.createElement("div");
+  erro.className = "erro";
+  div.appendChild(erro);
+  caixa.appendChild(div);
+  return div;
+}
+function listaAjustes(caixa, ajustes, verNovo) {
+  (ajustes || []).forEach((a) => {
+    const i = indice(a.post);
+    if (i < 0) return;
+    const p = posts[i];
+    const linha = document.createElement("div");
+    linha.className = "ajuste";
+    // nos ajustes prontos, a miniatura de antes (apagada) e a de agora lado a lado (23/11)
+    const era = verNovo && p.antes ? '<img class="era" alt="" src="' + esc(p.antes[0]) + '"><i></i>' : "";
+    linha.innerHTML = '<div class="miniaturas' + (era ? " duas" : "") + '">' + era + '<img alt="" src="' + esc(p.imagens[0]) + '"></div>' +
+      "<div><b>" + esc(nome(p)) + "</b><span></span>" +
+      (verNovo ? "<small>toque pra ver</small>" : "") + "</div>";
+    linha.querySelector("span").textContent = a.resumo;
+    linha.onclick = () => abrirVisor(i);
+    caixa.appendChild(linha);
+  });
+}
+
+// "gravar de novo", "esqueci de falar algo", "quero mudar outro": volta o botão Gravar sem mudar a etapa
+function telaGravar(texto, ids) {
+  modo = "gravar";
+  const c = caixaEtapa("<h2>Sem problema</h2><p>" + texto + "</p>");
+  telas({ guia: true, gravar: true });
+  filtrar(ids);
+  if (filtro) acoes(c, [["Mostrar todos os posts", "secundario", (b) => { filtrar(null); b.parentElement.remove(); }]]);
+}
+function gravarSobre(i) {
+  modo = "sobre";
+  caixaEtapa("<h2>Gravar sobre esse post</h2><p>Aperte Gravar, fale o que quer mudar nele e toque pra enviar.</p>");
+  telas({ gravar: true });
+  $("lembrete").textContent = "Fale o que quer mudar neste post e toque pra enviar.";
+  filtrar([posts[i].id]);
+  abrirVisor(i);
+}
+function telaAprovar() {
+  modo = "aprovar";
+  const c = caixaEtapa(W
+    ? "<h2>Liberar pro cliente?</h2><p>Os " + N + " posts vão pro cliente do jeito que estão. Depois aparece o botão pra mandar o link no WhatsApp.</p>"
+    : "<h2>Aprovar " + MES + "?</h2><p>Os " + N + " posts saem nos dias marcados, do jeito que estão.</p>");
+  telas();
+  acoes(c, [[W ? "Sim, liberar" : "Sim, aprovar", "", (b) => tocar("liberar", {}, b)],
+            ["Voltar", "secundario", () => { modo = ""; mostrar(true); }]]);
+  window.scrollTo(0, 0);
+}
+$("aprovar").onclick = telaAprovar;
+
+async function tocar(etapa, extra, botao) {
+  const texto = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = "Enviando...";
+  const erro = botao.parentElement.querySelector(".erro");
+  const form = formBase(etapa);
+  Object.entries(extra || {}).forEach(([k, v]) => form.append(k, v));
+  try {
+    const r = await fetch(DADOS.caixa + "/confirmar", { method: "POST", body: form });
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok && !(r.status === 409 && j.estado)) throw new Error("código " + r.status);
+    modo = "";
+    aplicarEstado(j.estado, true);
+  } catch (e) {
+    botao.disabled = false;
+    botao.textContent = texto;
+    if (erro) { erro.textContent = "Não foi (" + (e.message || e) + "). Confira a internet e toque de novo."; erro.style.display = "block"; }
+  }
+}
+
+const COM_O_CLIENTE = {
+  gravar: "Liberado. Toque no botão pra mandar o link pro cliente no WhatsApp (dá pra mudar o texto antes de enviar). Ele ainda não gravou nem aprovou.",
+  ouvindo: "O cliente mandou um áudio. Estamos ouvindo.",
+  pergunta: "O cliente pediu uma mudança sem dizer o quê. A página perguntou a ele o que mudar.",
+  processando: "O cliente respondeu a pergunta. Já aparece o próximo passo.",
+  lista: "O cliente está conferindo a lista do que entendemos.",
+  ajustando: "O cliente mandou os ajustes abaixo. O Mateus está refazendo.",
+  versoes: "Os ajustes prontos estão com o cliente pra conferir.",
+};
+
+function mostrar(forcar) {
+  const e = estado;
+  const chave = [e.fase, e.etapa, e.rodada, e.outros, JSON.stringify(e.vagos || []), JSON.stringify(e.ajustes || [])].join("|");
+  if (chave !== vista) modo = "";
+  else if (!forcar) return;
+  vista = chave;
+  if (gravacao || modo) return;   // nunca mexe na tela no meio da gravação nem do que a pessoa abriu
+  if (filtro) filtrar(null);
+  $("grade").style.display = "";
+
+  if (e.fase === "sem") {
+    caixaEtapa("<h2>Este link não está valendo</h2><p>Peça o link de novo pra quem te mandou.</p>");
+    telas();
+    return;
+  }
+  if (e.fase === "preparando") {
+    caixaEtapa("<h2>Quase pronto</h2><p>Os posts de " + MES + " ainda estão sendo preparados. Assim que ficarem prontos, te mandamos o link.</p>");
+    $("grade").style.display = "none";
+    telas();
+    return;
+  }
+  if (W && e.fase !== "william") {
+    const c = caixaEtapa(e.fase === "fechado"
+      ? "<h2>" + MES_TITULO + " aprovado ✓</h2><p>Aprovado pelo cliente em " + quando(e.fechado_em) + ".</p>"
+      : "<h2>Com o cliente</h2><p>" + (COM_O_CLIENTE[e.etapa] || "") + "</p>");
+    if (["lista", "ajustando", "versoes"].includes(e.etapa)) listaAjustes(c, e.ajustes, e.etapa === "versoes");
+    if (e.whatsapp && e.fase === "cliente") {
+      const a = document.createElement("a");
+      a.className = "botao";
+      a.style.marginTop = "12px";
+      a.href = e.whatsapp;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = e.etapa === "gravar" ? "Mandar o link no WhatsApp" : "Mandar o link de novo no WhatsApp";
+      c.appendChild(a);
+    }
+    telas();
+    return;
+  }
+
+  const c = $("etapa");
+  switch (e.etapa) {
+    case "gravar":
+      c.style.display = "none";
+      telas({ guia: true, gravar: true, aprovar: true });
+      return;
+    case "ouvindo":
+      caixaEtapa('<h2 class="esperando">Recebido! Ouvindo seu áudio</h2><p>Em alguns minutos aparece aqui a lista dos ajustes que vamos fazer. ' +
+        "Pode deixar esta página aberta ou fechar e abrir o link de novo depois.</p>");
+      telas();
+      return;
+    case "processando":
+      caixaEtapa('<h2 class="esperando">Combinado! Só um instante</h2><p>Já aparece aqui o próximo passo.</p>');
+      telas();
+      return;
+    case "pergunta": return telaPergunta();
+    case "lista": {
+      const cx = caixaEtapa("<h2>Entendi assim</h2><p>Confere se é isso que você quer mudar.</p>");
+      listaAjustes(cx, e.ajustes, false);
+      const nota = document.createElement("p");
+      nota.style.cssText = "margin:12px 0 0;font-size:15px;color:var(--suave)";
+      nota.textContent = e.frase ? "Os outros posts ficam como estão."
+        : "Você não disse se os outros posts podem ir. Se estiver tudo certo com eles, é só tocar em Tá certo.";
+      cx.appendChild(nota);
+      acoes(cx, [["Tá certo", "", (b) => tocar("lista", {}, b)],
+                 ["Não é isso, gravar de novo", "secundario", () => telaGravar("Aperte Gravar lá embaixo e fale de novo o que quer mudar. " +
+                   "Aparecem só os posts desta lista.", (e.ajustes || []).map((a) => a.post))]], true);
+      telas();
+      return;
+    }
+    case "ajustando": {
+      // 25/11 (Mateus e William): sem o "Entendi assim", a lista do áudio cai direto aqui. O botão de baixo serve
+      // pra completar e também pra corrigir o que entendemos errado (o PC devolve a lista inteira corrigida).
+      const cx = caixaEtapa("<h2>Combinado!</h2><p>" + (W
+        ? "Estes são os ajustes que vamos fazer. O aviso chega no seu Telegram quando ficarem prontos."
+        : "Estes são os ajustes que vamos fazer. Te avisamos pelo WhatsApp quando ficarem prontos. Pode fechar esta página.") + "</p>");
+      listaAjustes(cx, e.ajustes, false);
+      acoes(cx, [["Esqueci algo ou quero corrigir", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que faltou " +
+        "ou o que entendemos errado. O resto da lista continua valendo.")]], true);
+      telas();
+      return;
+    }
+    case "versoes": {
+      const cx = caixaEtapa("<h2>Ajustes prontos</h2><p>Toque em cada um pra ver grande. Dá pra ver como era antes.</p>");
+      listaAjustes(cx, e.ajustes, true);
+      acoes(cx, [[W ? "Ficou certo, liberar pro cliente" : "Ficou tudo certo", "", (b) => tocar("final", {}, b)],
+                 ["Ainda quero mudar", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que quer mudar.")]], true);
+      telas();
+      return;
+    }
+    case "fechado":
+      // 22/11 (Mateus): mês fechado não reabre pela página. Mudança depois disso fica pra pensar depois.
+      caixaEtapa("<h2>" + MES_TITULO + " aprovado ✓</h2><p>Aprovado por você em " + quando(e.fechado_em) + ".</p>" +
+        "<p>Os " + N + " posts saem nos dias marcados. Pode fechar esta página.</p>");
+      telas();
+      return;
+  }
+}
+
+// fala vaga: a pergunta que ia pro grupo, agora aqui (19/11 → 22/11)
+function telaPergunta() {
+  const e = estado;
+  const abertos = (e.vagos || []).filter((v) => !v.resposta);
+  if (abertos.length) {
+    const cx = caixaEtapa("<h2>Uma dúvida</h2><p>" + (abertos.length > 1 ? "Em " + abertos.length + " posts" : "Num post") +
+      " não deu pra saber o que mudar. Toque em <b>Gravar sobre esse post</b> e fale só dele, ou em <b>Faz outro do zero</b> se preferir que a gente traga outra ideia." +
+      " Se você não pediu nada " + (abertos.length > 1 ? "num deles" : "nele") + ", toque em <b>Não pedi nada nesse</b>.</p>");
+    abertos.forEach((v) => {
+      const i = indice(v.post);
+      if (i < 0) return;
+      const d = document.createElement("div");
+      d.className = "vago";
+      d.innerHTML = '<div class="ajuste"><img alt="" src="' + esc(posts[i].imagens[0]) + '"><div><b>' + esc(nome(posts[i])) + "</b><span></span></div></div>";
+      d.querySelector("span").textContent = (v.fala ? 'Você disse "' + v.fala + '". ' : "") + "O que quer mudar: texto, foto, cor ou o post inteiro?";
+      d.querySelector(".ajuste").onclick = () => abrirVisor(i);
+      // "Não pedi nada nesse" (23/11): a fala caiu nesse post só porque ele passou o dedo
+      acoes(d, [["Gravar sobre esse post", "", () => gravarSobre(i)],
+                ["Faz outro do zero", "secundario", (b) => tocar("zero", { post: v.post }, b)],
+                ["Não pedi nada nesse", "secundario", (b) => tocar("nada", { post: v.post }, b)]]);
+      cx.appendChild(d);
+    });
+  } else if (!e.frase && !e.outros) {
+    const zeros = (e.vagos || []).filter((v) => v.resposta === "zero").map((v) => {
+      const i = indice(v.post);
+      return i < 0 ? v.post : nome(posts[i]);
+    });
+    const cx = caixaEtapa("<h2>E os outros posts, estão certos?</h2><p>" +
+      (zeros.length ? "Combinado: " + esc(zeros.join(" e ")) + " vai ser refeito do zero, com outra ideia. " : "") + "Falta só saber dos outros.</p>");
+    acoes(cx, [["Sim, estão certos", "", (b) => tocar("outros", {}, b)],
+               ["Quero mudar outro", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que quer mudar.")]]);
+  } else {
+    caixaEtapa('<h2 class="esperando">Combinado! Só um instante</h2><p>Já aparece aqui o próximo passo.</p>');
+  }
+  telas();
+}
+
+function aplicarEstado(e, forcar) {
+  if (!e) return;
+  estado = e;
+  const assinatura = JSON.stringify([e.trocas || {}, e.antes || {}]);
+  if (assinatura !== assinaturaImagens) {
+    assinaturaImagens = assinatura;
+    posts = DADOS.posts.map((p) => ({ ...p, imagens: (e.trocas || {})[p.id] || p.imagens, antes: (e.antes || {})[p.id] || null }));
+    const aberto = $("visor").classList.contains("aberto") ? postAtual : null;
+    montarPosts();
+    if (aberto !== null && !gravacao) abrirVisor(aberto);
+  }
+  mostrar(forcar);
+  agendar();
+}
+
+function agendar() {
+  clearTimeout(relogioBusca);
+  if (!estado || estado.fase === "sem") return;
+  const rapido = ["ouvindo", "processando"].includes(estado.etapa);
+  relogioBusca = setTimeout(buscar, rapido ? 4000 : 20000);
+}
+
+async function buscar() {
+  if (document.hidden || gravacao) { agendar(); return; }
+  const q = new URLSearchParams({ cliente: DADOS.clienteId, mes: DADOS.mesId, papel: PAPEL, chave: CHAVE });
+  try {
+    const r = await fetch(DADOS.caixa + "/estado?" + q, { cache: "no-store" });
+    if (r.status === 401) { aplicarEstado({ fase: "sem" }); return; }
+    const j = await r.json();
+    aplicarEstado(r.ok || r.status === 404 ? j : null);
+    if (!r.ok && r.status !== 404) throw new Error("código " + r.status);
+  } catch (e) {
+    if (!estado) {
+      const c = caixaEtapa("<h2>Não carregou</h2><p>Não consegui ver em que pé está o mês (" + esc(e.message || e) + "). Confira a internet.</p>");
+      acoes(c, [["Tentar de novo", "", () => { caixaEtapa('<h2 class="esperando">Carregando</h2>'); buscar(); }]]);
+    }
+    clearTimeout(relogioBusca);
+    relogioBusca = setTimeout(buscar, 10000);
+  }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) buscar(); });
+
+montarPosts();
+if (!CHAVE) {
+  caixaEtapa("<h2>Link incompleto</h2><p>Falta um pedaço do link. Peça o link de novo pra quem te mandou.</p>");
+} else {
+  buscar();
+}
+
+$("botao").onclick = () => (gravacao ? parar() : comecar());
+$("tentar").onclick = enviar;
+$("denovo").onclick = () => { voltarDoFim(); mostrar(true); };
+</script>
+</body>
+</html>
