@@ -705,7 +705,7 @@ const COM_O_CLIENTE = {
   pergunta: "O cliente pediu uma mudança sem dizer o quê. A página perguntou a ele o que mudar.",
   processando: "O cliente respondeu a pergunta. Já aparece o próximo passo.",
   lista: "O cliente está conferindo a lista do que entendemos.",
-  ajustando: "O cliente confirmou os ajustes. O Mateus está refazendo.",
+  ajustando: "O cliente mandou os ajustes abaixo. O Mateus está refazendo.",
   versoes: "Os ajustes prontos estão com o cliente pra conferir.",
 };
 
@@ -756,7 +756,7 @@ function mostrar(forcar) {
       telas({ guia: true, gravar: true, aprovar: true });
       return;
     case "ouvindo":
-      caixaEtapa('<h2 class="esperando">Recebido! Ouvindo seu áudio</h2><p>Em alguns minutos aparece aqui o que entendemos, pra você conferir. ' +
+      caixaEtapa('<h2 class="esperando">Recebido! Ouvindo seu áudio</h2><p>Em alguns minutos aparece aqui a lista dos ajustes que vamos fazer. ' +
         "Pode deixar esta página aberta ou fechar e abrir o link de novo depois.</p>");
       telas();
       return;
@@ -780,11 +780,14 @@ function mostrar(forcar) {
       return;
     }
     case "ajustando": {
+      // 25/11 (Mateus e William): sem o "Entendi assim", a lista do áudio cai direto aqui. O botão de baixo serve
+      // pra completar e também pra corrigir o que entendemos errado (o PC devolve a lista inteira corrigida).
       const cx = caixaEtapa("<h2>Combinado!</h2><p>" + (W
-        ? "Os ajustes estão sendo feitos. O aviso chega no seu Telegram quando ficarem prontos."
-        : "Confirmado em " + quando(e.atualizado) + ". Te avisamos pelo WhatsApp quando os ajustes ficarem prontos. Pode fechar esta página.") + "</p>");
+        ? "Estes são os ajustes que vamos fazer. O aviso chega no seu Telegram quando ficarem prontos."
+        : "Estes são os ajustes que vamos fazer. Te avisamos pelo WhatsApp quando ficarem prontos. Pode fechar esta página.") + "</p>");
       listaAjustes(cx, e.ajustes, false);
-      acoes(cx, [["Esqueci de falar algo", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que faltou.")]], true);
+      acoes(cx, [["Esqueci algo ou quero corrigir", "secundario", () => telaGravar("Aperte Gravar lá embaixo, vá passando os posts e fale o que faltou " +
+        "ou o que entendemos errado. O resto da lista continua valendo.")]], true);
       telas();
       return;
     }
